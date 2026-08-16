@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
@@ -8,13 +8,12 @@ import {
   Tag,
   Trash2,
   CheckCircle2,
-  Upload,
-  RefreshCw,
   Sparkles,
+  Link,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { Language, Moment } from '../types';
 import { generateLikesFromPreset, formatLikes } from '../utils/likesFormatter';
-import { compressImageFile } from '../utils/imageCompressor';
 
 interface EditMomentModalProps {
   moment: Moment | null;
@@ -44,9 +43,7 @@ export const EditMomentModal: React.FC<EditMomentModalProps> = ({
   const [imgUrl, setImgUrl] = useState('');
   const [likes, setLikes] = useState<number>(0);
   const [customLikesInput, setCustomLikesInput] = useState<string>('');
-  const [isCompressing, setIsCompressing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (moment) {
@@ -81,40 +78,16 @@ export const EditMomentModal: React.FC<EditMomentModalProps> = ({
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
 
-    const file = files[0];
-    if (!file.type.startsWith('image/')) {
+    if (!imgUrl.trim()) {
       onShowToast(
-        language === 'NE' ? 'कृपया मान्य तस्बिर फाइल छान्नुहोस्।' : 'Please select a valid image file.',
+        language === 'NE' ? 'कृपया मान्य तस्बिर लिंक (URL) प्रविष्ट गर्नुहोस्।' : 'Please provide a valid image link URL.',
         'error'
       );
       return;
     }
-
-    try {
-      setIsCompressing(true);
-      const compressed = await compressImageFile(file, 1400, 0.85);
-      setImgUrl(compressed);
-      onShowToast(
-        language === 'NE' ? 'नयाँ तस्बिर सफलतापूर्वक लोड भयो!' : 'New photo loaded & compressed!',
-        'success'
-      );
-    } catch (err) {
-      console.error(err);
-      onShowToast(
-        language === 'NE' ? 'तस्बिर प्रशोधनमा समस्या आयो।' : 'Failed to process image file.',
-        'error'
-      );
-    } finally {
-      setIsCompressing(false);
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
 
     const updated: Moment = {
       ...moment,
@@ -122,7 +95,7 @@ export const EditMomentModal: React.FC<EditMomentModalProps> = ({
       titleNe: titleNe.trim() || moment.titleNe,
       descEn: descEn.trim() || moment.descEn,
       descNe: descNe.trim() || moment.descNe,
-      imgUrl: imgUrl || moment.imgUrl,
+      imgUrl: imgUrl.trim(),
       category,
       date: eventDate,
       likes: Math.max(0, likes),
@@ -173,7 +146,7 @@ export const EditMomentModal: React.FC<EditMomentModalProps> = ({
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-slate-100 font-heading">
-                    {language === 'NE' ? 'तस्बिर विवरण सम्पादन गर्नुहोस्' : 'Edit Moment & Photo'}
+                    {language === 'NE' ? 'तस्बिर विवरण सम्पादन (लिङ्क मार्फत)' : 'Edit Moment & Photo Link'}
                   </h3>
                   <p className="text-xs text-slate-400">
                     ID: <span className="font-mono text-slate-300">{moment.id}</span>
@@ -183,6 +156,7 @@ export const EditMomentModal: React.FC<EditMomentModalProps> = ({
               <button
                 onClick={onClose}
                 className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -190,53 +164,43 @@ export const EditMomentModal: React.FC<EditMomentModalProps> = ({
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-5 overflow-y-auto pr-1 flex-1">
-              {/* Photo Display & Direct Device Upload / Replace */}
-              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  accept="image/*"
-                  className="hidden"
-                />
+              {/* Photo Display & Direct Image Link URL */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-slate-950 border border-blue-500/20 space-y-4">
+                <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-400">
+                  <Link className="w-4 h-4 text-blue-400" />
+                  <span>{language === 'NE' ? 'तस्बिर वेब लिंक (Image URL)' : 'Photo Web Link (Image URL)'}</span>
+                </label>
 
-                <div className="flex flex-col sm:flex-row items-center gap-4">
-                  <div className="relative w-28 h-28 rounded-2xl overflow-hidden bg-slate-900 border border-slate-700 flex items-center justify-center shrink-0">
-                    <img
-                      src={imgUrl}
-                      alt={titleEn}
-                      referrerPolicy="no-referrer"
-                      className="max-h-full max-w-full object-contain"
-                    />
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  <div className="relative w-28 h-28 rounded-2xl overflow-hidden bg-slate-900 border-2 border-slate-800 flex items-center justify-center shrink-0 shadow-lg">
+                    {imgUrl ? (
+                      <img
+                        src={imgUrl}
+                        alt={titleEn}
+                        referrerPolicy="no-referrer"
+                        className="max-h-full max-w-full object-cover"
+                      />
+                    ) : (
+                      <ImageIcon className="w-8 h-8 text-slate-600" />
+                    )}
                   </div>
 
-                  <div className="flex-1 min-w-0 space-y-2 text-center sm:text-left">
-                    <div className="text-xs font-bold text-slate-200">
-                      {language === 'NE' ? 'तस्बिर परिवर्तन गर्नुहोस्' : 'Change Photo from Device'}
+                  <div className="flex-1 w-full space-y-2">
+                    <div className="relative">
+                      <input
+                        type="url"
+                        value={imgUrl}
+                        onChange={(e) => setImgUrl(e.target.value)}
+                        placeholder="https://blogger.googleusercontent.com/..."
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs font-mono focus:outline-none focus:border-blue-500"
+                        required
+                      />
                     </div>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-[11px] text-slate-400">
                       {language === 'NE'
-                        ? 'आफ्नो कम्प्युटर वा मोबाइलबाट नयाँ तस्बिर सिधै अपलोड गर्नुहोस्'
-                        : 'Upload a replacement photo directly from your device storage.'}
+                        ? 'तस्बिर केवल वेब लिंक (URL) मार्फत परिवर्तन गर्न सकिन्छ।'
+                        : 'Photo is changed strictly through image link URL.'}
                     </p>
-
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isCompressing}
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 text-xs font-semibold transition-all active:scale-95"
-                    >
-                      {isCompressing ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Upload className="w-3.5 h-3.5" />
-                      )}
-                      <span>
-                        {isCompressing
-                          ? (language === 'NE' ? 'प्रशोधन हुँदै...' : 'Compressing...')
-                          : (language === 'NE' ? 'नयाँ तस्बिर छान्नुहोस्' : 'Browse New Photo')}
-                      </span>
-                    </button>
                   </div>
                 </div>
               </div>
@@ -300,25 +264,25 @@ export const EditMomentModal: React.FC<EditMomentModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Title (English)
+                    {language === 'NE' ? 'शीर्षक (English)' : 'Title (English)'}
                   </label>
                   <input
                     type="text"
                     value={titleEn}
                     onChange={(e) => setTitleEn(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    शीर्षक (नेपाली)
+                    {language === 'NE' ? 'शीर्षक (नेपाली)' : 'Title (Nepali)'}
                   </label>
                   <input
                     type="text"
                     value={titleNe}
                     onChange={(e) => setTitleNe(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -327,39 +291,40 @@ export const EditMomentModal: React.FC<EditMomentModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Description (English)
+                    {language === 'NE' ? 'विवरण (English)' : 'Description (English)'}
                   </label>
                   <textarea
                     rows={2}
                     value={descEn}
                     onChange={(e) => setDescEn(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500 resize-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500 resize-none"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    विवरण (नेपाली)
+                    {language === 'NE' ? 'विवरण (नेपाली)' : 'Description (Nepali)'}
                   </label>
                   <textarea
                     rows={2}
                     value={descNe}
                     onChange={(e) => setDescNe(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500 resize-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500 resize-none"
                   />
                 </div>
               </div>
 
-              {/* Category and Date */}
+              {/* Category & Date */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Category
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-blue-400" />
+                    <span>{language === 'NE' ? 'विधा / श्रेणी' : 'Category'}</span>
                   </label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
                   >
                     {categories.map((c) => (
                       <option key={c} value={c}>
@@ -370,68 +335,98 @@ export const EditMomentModal: React.FC<EditMomentModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Event Date
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>{language === 'NE' ? 'मिति' : 'Date'}</span>
                   </label>
                   <input
                     type="date"
                     value={eventDate}
                     onChange={(e) => setEventDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
                   />
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              {/* Actions Footer */}
               <div className="pt-4 border-t border-slate-800 flex items-center justify-between shrink-0">
-                {showDeleteConfirm ? (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleDelete}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-600/40 transition-all active:scale-95 animate-pulse"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>{language === 'NE' ? 'पक्का स्थायी मेटाउने ?' : 'Confirm Delete Now'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowDeleteConfirm(false)}
-                      className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium"
-                    >
-                      {language === 'NE' ? 'रद्द' : 'Cancel'}
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteConfirm(true)}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/20 text-xs font-semibold transition-all"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>{language === 'NE' ? 'स्थायी रूपमा मेटाउनुहोस्' : 'Delete Permanently'}</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/20 text-xs font-semibold transition-all active:scale-95"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>{language === 'NE' ? 'तस्बिर मेटाउनुहोस्' : 'Delete Photo'}</span>
+                </button>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={onClose}
-                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                    className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
                   >
                     {language === 'NE' ? 'रद्द गर्नुहोस्' : 'Cancel'}
                   </button>
 
                   <button
                     type="submit"
-                    className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 transition-all active:scale-95"
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 transition-all active:scale-95"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <CheckCircle2 className="w-4 h-4" />
                     <span>{language === 'NE' ? 'परिवर्तन सुरक्षित गर्नुहोस्' : 'Save Changes'}</span>
                   </button>
                 </div>
               </div>
             </form>
+
+            {/* Permanent Delete Confirmation Submodal */}
+            <AnimatePresence>
+              {showDeleteConfirm && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6"
+                >
+                  <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    className="w-full max-w-md bg-slate-900 border border-rose-500/40 rounded-2xl p-6 shadow-2xl space-y-4"
+                  >
+                    <div className="flex items-center gap-3 text-rose-400">
+                      <Trash2 className="w-6 h-6" />
+                      <h4 className="text-base font-bold text-slate-100">
+                        {language === 'NE' ? 'के तपाईँ यो तस्बिर मेटाउन निश्चित हुनुहुन्छ?' : 'Permanently Delete this Photo?'}
+                      </h4>
+                    </div>
+
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      {language === 'NE'
+                        ? 'यो कार्य स्थायी हुनेछ र ग्यालरीबाट यो तस्बिर हट्नेछ।'
+                        : 'This action is irreversible and will remove this moment permanently from your portfolio gallery.'}
+                    </p>
+
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700 transition-colors"
+                      >
+                        {language === 'NE' ? 'रद्द गर्नुहोस्' : 'Cancel'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDelete}
+                        className="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-500 shadow-lg shadow-rose-600/30 transition-colors"
+                      >
+                        {language === 'NE' ? 'हो, मेटाउनुहोस्' : 'Yes, Delete Permanently'}
+                      </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         </motion.div>
       )}

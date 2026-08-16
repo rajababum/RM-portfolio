@@ -1,29 +1,26 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
-  Upload,
   Image as ImageIcon,
   Heart,
   Calendar,
   Tag,
   CheckCircle2,
   Trash2,
-  RefreshCw,
-  Layers,
   Sparkles,
   Link,
   Plus,
+  ExternalLink,
+  AlertCircle,
 } from 'lucide-react';
 import { Language, Moment } from '../types';
-import { compressImageFile } from '../utils/imageCompressor';
 import { generateLikesFromPreset, formatLikes } from '../utils/likesFormatter';
 
-interface UploadedFileItem {
+interface UrlItem {
   id: string;
-  dataUrl: string;
+  url: string;
   name: string;
-  size: number;
 }
 
 interface PhotoUploadModalProps {
@@ -41,13 +38,10 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
   onAddMoment,
   onShowToast,
 }) => {
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFileItem[]>([]);
-  const [activeFileIndex, setActiveFileIndex] = useState<number>(0);
-  const [isCompressing, setIsCompressing] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [showUrlFallback, setShowUrlFallback] = useState(false);
-  const [fallbackUrl, setFallbackUrl] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [currentUrl, setCurrentUrl] = useState('');
+  const [urlList, setUrlList] = useState<UrlItem[]>([]);
+  const [activeUrlIndex, setActiveUrlIndex] = useState<number>(0);
+  const [urlError, setUrlError] = useState(false);
 
   // Metadata form states
   const [titleEn, setTitleEn] = useState('');
@@ -64,120 +58,71 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
 
   const predefinedCategories = ['Technology', 'Community', 'Networking', 'Professional', 'Milestone', 'Personal', 'Other'];
 
-  const processFiles = async (files: FileList | File[]) => {
-    const validImageFiles = Array.from(files).filter((f) => f.type.startsWith('image/'));
-
-    if (validImageFiles.length === 0) {
+  const handleAddUrl = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanUrl = currentUrl.trim();
+    if (!cleanUrl) {
       onShowToast(
-        language === 'NE'
-          ? 'कृपया मान्य तस्बिर फाइलहरू (JPG, PNG, WebP) छान्नुहोस्।'
-          : 'Please select valid image files (JPG, PNG, WebP).',
+        language === 'NE' ? 'कृपया तस्बिरको मान्य वेब लिङ्क (URL) राख्नुहोस्।' : 'Please enter a valid image web URL link.',
         'error'
       );
       return;
     }
 
-    try {
-      setIsCompressing(true);
-      const newItems: UploadedFileItem[] = [];
-
-      for (let i = 0; i < validImageFiles.length; i++) {
-        const file = validImageFiles[i];
-        const compressedDataUrl = await compressImageFile(file, 1400, 0.85);
-        newItems.push({
-          id: `file-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 4)}`,
-          dataUrl: compressedDataUrl,
-          name: file.name.replace(/\.[^/.]+$/, ''),
-          size: file.size,
-        });
-      }
-
-      setUploadedFiles((prev) => {
-        const combined = [...prev, ...newItems];
-        if (prev.length === 0 && newItems.length > 0) {
-          setTitleEn(newItems[0].name.replace(/[-_]/g, ' '));
-        }
-        return combined;
-      });
-
+    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://') && !cleanUrl.startsWith('data:image/')) {
       onShowToast(
-        language === 'NE'
-          ? `${newItems.length} तस्बिर(हरू) सफलतापूर्वक लोड गरियो!`
-          : `${newItems.length} photo(s) processed & compressed successfully!`,
-        'success'
-      );
-    } catch (err) {
-      console.error(err);
-      onShowToast(
-        language === 'NE' ? 'तस्बिर प्रशोधन गर्न समस्या भयो।' : 'Failed to compress image file.',
+        language === 'NE' ? 'URL https:// वा http:// बाट सुरु हुनुपर्छ।' : 'URL must begin with https:// or http://',
         'error'
       );
-    } finally {
-      setIsCompressing(false);
+      return;
     }
+
+    const newItem: UrlItem = {
+      id: `link-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      url: cleanUrl,
+      name: `Photo Link ${urlList.length + 1}`,
+    };
+
+    setUrlList((prev) => [...prev, newItem]);
+    setCurrentUrl('');
+    setUrlError(false);
+    onShowToast(
+      language === 'NE' ? 'तस्बिर लिङ्क सफलतापूर्वक थपियो!' : 'Image link attached successfully!',
+      'success'
+    );
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      await processFiles(e.target.files);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      await processFiles(e.dataTransfer.files);
-    }
-  };
-
-  const handleRemoveUploadedItem = (indexToRemove: number) => {
-    setUploadedFiles((prev) => {
+  const handleRemoveUrl = (indexToRemove: number) => {
+    setUrlList((prev) => {
       const updated = prev.filter((_, idx) => idx !== indexToRemove);
-      if (activeFileIndex >= updated.length) {
-        setActiveFileIndex(Math.max(0, updated.length - 1));
+      if (activeUrlIndex >= updated.length) {
+        setActiveUrlIndex(Math.max(0, updated.length - 1));
       }
       return updated;
     });
   };
 
-  const handleAddUrlPhoto = () => {
-    if (!fallbackUrl.trim()) return;
-    setUploadedFiles((prev) => [
-      ...prev,
-      {
-        id: `url-${Date.now()}`,
-        dataUrl: fallbackUrl.trim(),
-        name: 'Web Image',
-        size: 0,
-      },
-    ]);
-    setFallbackUrl('');
-    setShowUrlFallback(false);
-    onShowToast(language === 'NE' ? 'तस्बिर लिंक थपियो!' : 'Image link attached!', 'success');
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (uploadedFiles.length === 0) {
+    // If no queued items but user has an input in the field, add it automatically
+    let itemsToProcess = [...urlList];
+    if (itemsToProcess.length === 0 && currentUrl.trim()) {
+      const cleanUrl = currentUrl.trim();
+      itemsToProcess = [
+        {
+          id: `link-${Date.now()}`,
+          url: cleanUrl,
+          name: titleEn.trim() || 'Photo Link 1',
+        },
+      ];
+    }
+
+    if (itemsToProcess.length === 0) {
       onShowToast(
         language === 'NE'
-          ? 'कृपया पहिले आफ्नो डिभाइसबाट तस्बिर अपलोड गर्नुहोस्।'
-          : 'Please upload at least one photo from your device.',
+          ? 'कृपया पहिले तस्बिरको लिङ्क (URL) प्रविष्ट गर्नुहोस्।'
+          : 'Please enter at least one photo link URL.',
         'error'
       );
       return;
@@ -185,18 +130,17 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
 
     const finalCategory = category === 'Other' ? (customCategory.trim() || 'General') : category;
 
-    // If single image or currently configured
-    if (uploadedFiles.length === 1) {
-      const targetItem = uploadedFiles[0];
+    if (itemsToProcess.length === 1) {
+      const targetItem = itemsToProcess[0];
       const generatedLikes = generateLikesFromPreset(likePreset, customLikesVal);
 
       const newMoment: Moment = {
         id: `moment-user-${Date.now()}`,
-        titleEn: titleEn.trim() || targetItem.name || 'Visual Milestone Moment',
+        titleEn: titleEn.trim() || 'Visual Milestone Moment',
         titleNe: titleNe.trim() || (titleEn.trim() || 'दृश्यात्मक माइलस्टोन'),
         descEn: descEn.trim() || 'Empowering leadership, community collaboration, and technological growth.',
         descNe: descNe.trim() || (descEn.trim() || 'सशक्त नेतृत्व, सामुदायिक सहकार्य र प्राविधिक विकास।'),
-        imgUrl: targetItem.dataUrl,
+        imgUrl: targetItem.url,
         likes: generatedLikes,
         category: finalCategory,
         date: eventDate,
@@ -206,10 +150,10 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
 
       onAddMoment(newMoment);
     } else {
-      // Multiple images batch upload
-      uploadedFiles.forEach((item, index) => {
+      // Multiple image links batch addition
+      itemsToProcess.forEach((item, index) => {
         const generatedLikes = generateLikesFromPreset(likePreset, customLikesVal);
-        const itemTitleEn = index === 0 && titleEn.trim() ? titleEn.trim() : (item.name || `Visual Moment ${index + 1}`);
+        const itemTitleEn = index === 0 && titleEn.trim() ? titleEn.trim() : `Visual Moment ${index + 1}`;
         const itemTitleNe = index === 0 && titleNe.trim() ? titleNe.trim() : itemTitleEn;
 
         const newMoment: Moment = {
@@ -218,7 +162,7 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
           titleNe: itemTitleNe,
           descEn: descEn.trim() || 'Empowering leadership, community collaboration, and technological growth.',
           descNe: descNe.trim() || 'सशक्त नेतृत्व, सामुदायिक सहकार्य र प्राविधिक विकास।',
-          imgUrl: item.dataUrl,
+          imgUrl: item.url,
           likes: generatedLikes,
           category: finalCategory,
           date: eventDate,
@@ -232,13 +176,14 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
 
     onShowToast(
       language === 'NE'
-        ? `${uploadedFiles.length} नयाँ तस्बिर(हरू) ग्यालरीमा सुरक्षित भयो!`
-        : `${uploadedFiles.length} photo(s) added to gallery!`,
+        ? `${itemsToProcess.length} नयाँ तस्बिर लिङ्क(हरू) ग्यालरीमा सुरक्षित भयो!`
+        : `${itemsToProcess.length} photo link(s) added to gallery!`,
       'success'
     );
 
     // Reset & close
-    setUploadedFiles([]);
+    setUrlList([]);
+    setCurrentUrl('');
     setTitleEn('');
     setTitleNe('');
     setDescEn('');
@@ -247,7 +192,7 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
     onClose();
   };
 
-  const currentPreview = uploadedFiles[activeFileIndex] || uploadedFiles[0];
+  const activePreviewUrl = urlList[activeUrlIndex]?.url || currentUrl.trim();
 
   return (
     <AnimatePresence>
@@ -271,22 +216,23 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
             <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-400">
-                  <Upload className="w-5 h-5" />
+                  <Link className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-slate-100 font-heading">
-                    {language === 'NE' ? 'डिभाइसबाट तस्बिर अपलोड गर्नुहोस्' : 'Direct Photo Upload System'}
+                    {language === 'NE' ? 'तस्बिर लिङ्क (URL) मार्फत थप्नुहोस्' : 'Add Photo via Image Link (URL)'}
                   </h3>
                   <p className="text-xs text-slate-400">
                     {language === 'NE'
-                      ? 'तपाईँको मोबाइल वा कम्प्युटरबाट सिधै तस्बिर छान्नुहोस् वा ड्र्याग गर्नुहोस्'
-                      : 'Select or drag photos directly from phone/PC with canvas auto-compression'}
+                      ? 'वेब, गुगल वा ब्लगरबाट सिधै तस्बिरको URL लिङ्क राख्नुहोस्'
+                      : 'Attach and showcase photos using direct public web image URLs'}
                   </p>
                 </div>
               </div>
               <button
                 onClick={onClose}
                 className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                aria-label="Close modal"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -295,169 +241,126 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
             {/* Scrollable Form Body */}
             <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto pr-1 flex-1">
               
-              {/* PRIMARY UPLOAD DROP ZONE ON TOP */}
-              <div>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                />
-
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-3xl p-6 sm:p-8 text-center cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-                    isDragging
-                      ? 'border-blue-500 bg-blue-950/30 scale-[1.01]'
-                      : 'border-slate-700 hover:border-blue-500/80 bg-slate-950/70 hover:bg-slate-950'
-                  }`}
-                >
-                  <div className="flex flex-col items-center justify-center gap-3">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-blue-600/30 group-hover:scale-110 transition-transform">
-                      {isCompressing ? (
-                        <RefreshCw className="w-7 h-7 animate-spin" />
-                      ) : (
-                        <Upload className="w-7 h-7" />
-                      )}
-                    </div>
-
-                    <div>
-                      <h4 className="text-base font-bold text-slate-100 mb-1 font-heading">
-                        {isCompressing
-                          ? (language === 'NE' ? 'तस्बिरहरू कम्प्रेस र अप्टिमाइज गरिँदैछ...' : 'Optimizing & Compressing Photos...')
-                          : (language === 'NE' ? 'यहाँ थिचेर तस्बिर छान्नुहोस् वा ड्रप गर्नुहोस्' : 'Tap to Browse or Drag Photos Here')}
-                      </h4>
-                      <p className="text-xs text-slate-400 max-w-md mx-auto">
-                        {language === 'NE'
-                          ? 'मोबाइल ग्यालरी, क्यामेरा वा कम्प्युटरबाट एक वा धेरै तस्बिरहरू सिधै चयन गर्नुहोस् (JPG, PNG, WebP)'
-                          : 'Select one or multiple photos directly from your phone gallery or PC (JPG, PNG, WebP)'}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-950/60 border border-blue-800/40 text-[11px] font-semibold text-blue-300">
-                        <Sparkles className="w-3 h-3 text-amber-300" />
-                        {language === 'NE' ? 'अनक्रप एचडी डिस्प्ले' : 'Uncropped High-Res'}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-semibold text-slate-300">
-                        <Layers className="w-3 h-3 text-blue-400" />
-                        {language === 'NE' ? 'मल्टी-अपलोड सपोर्ट' : 'Batch Upload Ready'}
-                      </span>
-                    </div>
-                  </div>
+              {/* PRIMARY URL INPUT ZONE */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-slate-950 border border-blue-500/20 shadow-inner space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-400">
+                    <Link className="w-4 h-4 text-blue-400" />
+                    <span>{language === 'NE' ? 'तस्बिरको वेब URL लिङ्क' : 'Photo Image URL'}</span>
+                  </label>
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    Direct JPG, PNG, WebP or Blogger link
+                  </span>
                 </div>
 
-                {/* Optional Web URL Accordion Trigger */}
-                <div className="mt-2 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={() => setShowUrlFallback(!showUrlFallback)}
-                    className="text-[11px] text-slate-400 hover:text-blue-400 flex items-center gap-1 transition-colors"
-                  >
-                    <Link className="w-3 h-3" />
-                    <span>{language === 'NE' ? 'वा बाह्य इमेज लिंक (URL) प्रयोग गर्नुहोस्' : 'Or attach an external image link'}</span>
-                  </button>
-
-                  {uploadedFiles.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="text-[11px] text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>{language === 'NE' ? 'थप तस्बिर जोड्नुहोस्' : 'Add more photos'}</span>
-                    </button>
-                  )}
-                </div>
-
-                {showUrlFallback && (
-                  <div className="mt-3 p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-stretch gap-2">
+                  <div className="relative flex-1">
                     <input
                       type="url"
-                      placeholder="https://images.unsplash.com/photo-..."
-                      value={fallbackUrl}
-                      onChange={(e) => setFallbackUrl(e.target.value)}
-                      className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs focus:outline-none focus:border-blue-500 font-mono"
+                      value={currentUrl}
+                      onChange={(e) => {
+                        setCurrentUrl(e.target.value);
+                        setUrlError(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddUrl();
+                        }
+                      }}
+                      placeholder="https://blogger.googleusercontent.com/img/b/... or https://images.unsplash.com/..."
+                      className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs font-mono focus:outline-none focus:border-blue-500 transition-colors"
                     />
-                    <button
-                      type="button"
-                      onClick={handleAddUrlPhoto}
-                      className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shrink-0"
-                    >
-                      {language === 'NE' ? 'लिंक जोड्नुहोस्' : 'Attach Link'}
-                    </button>
+                    {currentUrl.trim() && !urlError && (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 absolute right-3.5 top-3.5" />
+                    )}
                   </div>
-                )}
 
-                {/* Uploaded Photos Preview Reel */}
-                {uploadedFiles.length > 0 && (
-                  <div className="mt-4 p-4 rounded-2xl bg-slate-950 border border-slate-800">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-200">
-                          {language === 'NE' ? 'अपलोड गरिएका तस्बिरहरू' : 'Selected Photos'} ({uploadedFiles.length})
-                        </span>
-                      </div>
+                  <button
+                    type="button"
+                    onClick={() => handleAddUrl()}
+                    className="inline-flex items-center justify-center gap-1.5 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 transition-all active:scale-95 shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>{language === 'NE' ? 'लिङ्क थप्नुहोस्' : 'Attach Link'}</span>
+                  </button>
+                </div>
+
+                {/* Queue of attached links */}
+                {urlList.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-slate-800">
+                    <div className="flex items-center justify-between text-xs text-slate-300">
+                      <span className="font-bold">
+                        {language === 'NE' ? 'थपिएका तस्बिर लिङ्कहरू' : 'Attached Photo Links'} ({urlList.length})
+                      </span>
                       <button
                         type="button"
-                        onClick={() => setUploadedFiles([])}
+                        onClick={() => setUrlList([])}
                         className="text-[11px] text-rose-400 hover:text-rose-300 font-medium"
                       >
                         {language === 'NE' ? 'सबै हटाउनुहोस्' : 'Clear all'}
                       </button>
                     </div>
 
-                    {/* Thumbnail queue */}
                     <div className="flex items-center gap-3 overflow-x-auto pb-2 no-scrollbar">
-                      {uploadedFiles.map((item, idx) => (
+                      {urlList.map((item, idx) => (
                         <div
                           key={item.id}
-                          onClick={() => {
-                            setActiveFileIndex(idx);
-                            setTitleEn(item.name.replace(/[-_]/g, ' '));
-                          }}
+                          onClick={() => setActiveUrlIndex(idx)}
                           className={`relative shrink-0 w-20 h-20 rounded-2xl overflow-hidden cursor-pointer border-2 transition-all group ${
-                            activeFileIndex === idx
+                            activeUrlIndex === idx
                               ? 'border-blue-500 scale-105 shadow-md shadow-blue-500/20'
                               : 'border-slate-800 opacity-70 hover:opacity-100'
                           }`}
                         >
                           <img
-                            src={item.dataUrl}
+                            src={item.url}
                             alt={item.name}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src =
+                                'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500&auto=format&fit=crop&q=80';
+                            }}
+                            referrerPolicy="no-referrer"
                             className="w-full h-full object-cover"
                           />
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleRemoveUploadedItem(idx);
+                              handleRemoveUrl(idx);
                             }}
                             className="absolute top-1 right-1 p-1 rounded-lg bg-slate-950/80 text-rose-400 hover:bg-rose-600 hover:text-white transition-colors"
-                            title="Remove photo"
+                            title="Remove link"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
 
-                    {/* Active Uncropped Preview */}
-                    {currentPreview && (
-                      <div className="mt-3 relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 p-2 flex items-center justify-center min-h-[200px] max-h-[280px]">
-                        <img
-                          src={currentPreview.dataUrl}
-                          alt={currentPreview.name}
-                          className="max-h-[260px] max-w-full object-contain rounded-xl drop-shadow-xl"
-                        />
-                        <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-lg bg-slate-950/80 backdrop-blur text-[11px] font-mono text-slate-300 border border-slate-800">
-                          {currentPreview.name}
-                        </div>
+                {/* Live Preview Display */}
+                {activePreviewUrl && (
+                  <div className="relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 p-2 flex items-center justify-center min-h-[180px] max-h-[260px]">
+                    <img
+                      src={activePreviewUrl}
+                      alt="Link Preview"
+                      referrerPolicy="no-referrer"
+                      onError={() => setUrlError(true)}
+                      className="max-h-[240px] max-w-full object-contain rounded-xl drop-shadow-xl"
+                    />
+                    {urlError ? (
+                      <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-4 text-center">
+                        <AlertCircle className="w-8 h-8 text-rose-400 mb-2" />
+                        <p className="text-xs text-rose-300 font-semibold">
+                          {language === 'NE' ? 'तस्बिर लोड हुन सकेन। कृपया URL जाँच गर्नुहोस्।' : 'Unable to load image preview. Please verify URL is accessible.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-lg bg-slate-950/80 backdrop-blur text-[11px] font-mono text-slate-300 border border-slate-800 flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        <span>Live Preview Ready</span>
                       </div>
                     )}
                   </div>
@@ -667,14 +570,14 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
 
                 <button
                   type="submit"
-                  disabled={uploadedFiles.length === 0 || isCompressing}
+                  disabled={urlList.length === 0 && !currentUrl.trim()}
                   className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-lg shadow-blue-600/30 transition-all active:scale-95"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>
                     {language === 'NE'
-                      ? `${uploadedFiles.length || 1} तस्बिर ग्यालरीमा राख्नुहोस्`
-                      : `Save ${uploadedFiles.length || 1} Photo(s) to Gallery`}
+                      ? `${urlList.length || 1} तस्बिर लिङ्क ग्यालरीमा राख्नुहोस्`
+                      : `Save ${urlList.length || 1} Photo Link(s) to Gallery`}
                   </span>
                 </button>
               </div>

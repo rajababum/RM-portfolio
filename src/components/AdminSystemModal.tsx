@@ -860,7 +860,7 @@ export const AdminSystemModal: React.FC<AdminSystemModalProps> = ({
                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 transition-all active:scale-95"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>{language === 'NE' ? '+ नयाँ तस्बिर थप्नुहोस्' : '+ Upload New Photo'}</span>
+                        <span>{language === 'NE' ? '+ नयाँ तस्बिर लिङ्क थप्नुहोस्' : '+ Add Photo via Link'}</span>
                       </button>
                     )}
                   </div>

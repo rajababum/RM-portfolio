@@ -162,7 +162,7 @@ export const JourneySection: React.FC<JourneySectionProps> = ({
                 className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold shadow-lg shadow-blue-600/30 transition-all active:scale-[0.98]"
               >
                 <PlusCircle className="w-4 h-4" />
-                <span>{language === 'NE' ? '+ नयाँ तस्बिर थप्नुहोस्' : '+ Upload Moment'}</span>
+                <span>{language === 'NE' ? '+ तस्बिर लिङ्क थप्नुहोस्' : '+ Add Photo Link'}</span>
               </button>
             )}
           </div>
