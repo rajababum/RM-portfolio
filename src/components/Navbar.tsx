@@ -20,6 +20,7 @@ interface NavbarProps {
   onLogoutAdmin: () => void;
   onOpenUploadModal: () => void;
   onOpenSystemModal: () => void;
+  onOpenAdminLogin?: () => void;
   profile: ProfileSettings;
 }
 
@@ -30,6 +31,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogoutAdmin,
   onOpenUploadModal,
   onOpenSystemModal,
+  onOpenAdminLogin,
   profile,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -105,7 +107,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </button>
 
-            {/* Admin Toolbar (When Authenticated) */}
+            {/* Admin Toolbar (When Authenticated) or Admin Access Button */}
             {isAdmin ? (
               <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
@@ -142,6 +144,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <LogOut className="w-4 h-4" />
                 </button>
               </div>
+            ) : onOpenAdminLogin ? (
+              <button
+                id="btn-nav-admin-login-desktop"
+                onClick={onOpenAdminLogin}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 hover:border-blue-500/50 hover:bg-blue-600/10 text-xs font-medium text-slate-400 hover:text-blue-400 transition-all"
+                title={language === 'NE' ? 'प्रशासक लगइन (तस्बिर मेटाउन वा थप्न)' : 'Admin Login (Manage & Delete photos)'}
+              >
+                <Shield className="w-3.5 h-3.5 text-blue-400" />
+                <span>{language === 'NE' ? 'प्रशासक लगइन' : 'Admin Login'}</span>
+              </button>
             ) : null}
           </div>
 
@@ -156,6 +168,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               {language === 'EN' ? 'नेपाली' : 'EN'}
             </button>
+
+            {!isAdmin && onOpenAdminLogin && (
+              <button
+                id="btn-nav-admin-login-mobile-icon"
+                onClick={onOpenAdminLogin}
+                className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-blue-400 text-xs"
+                title="Admin Login"
+              >
+                <Shield className="w-4 h-4" />
+              </button>
+            )}
 
             <button
               id="btn-mobile-menu-toggle"
@@ -232,6 +255,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <span>{language === 'NE' ? 'CMS सेटिङ्स' : 'System CMS'}</span>
                   </button>
                 </div>
+              </div>
+            )}
+
+            {!isAdmin && onOpenAdminLogin && (
+              <div className="pt-3 border-t border-slate-800">
+                <button
+                  onClick={() => {
+                    onOpenAdminLogin();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-blue-400 hover:bg-slate-800 text-xs font-semibold"
+                >
+                  <Shield className="w-4 h-4" />
+                  <span>{language === 'NE' ? 'प्रशासक लगइन (फोटो व्यवस्थापन)' : 'Admin Login (Manage Gallery)'}</span>
+                </button>
               </div>
             )}
           </motion.div>

@@ -15,6 +15,7 @@ import { PhotoUploadModal } from './components/PhotoUploadModal';
 import { EditMomentModal } from './components/EditMomentModal';
 import { AdminSystemModal } from './components/AdminSystemModal';
 import { AdminShieldOverlay } from './components/AdminShieldOverlay';
+import { AdminLoginModal } from './components/AdminLoginModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
 
 import { Language, Moment, Comment, SystemSettings } from './types';
@@ -42,7 +43,20 @@ export default function App() {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.SYSTEM_SETTINGS);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (
+          !parsed.profile?.heroImage ||
+          parsed.profile.heroImage.includes('6750.jpg')
+        ) {
+          parsed.profile = {
+            ...parsed.profile,
+            heroImage: DEFAULT_SYSTEM_SETTINGS.profile.heroImage,
+          };
+          try {
+            localStorage.setItem(STORAGE_KEYS.SYSTEM_SETTINGS, JSON.stringify(parsed));
+          } catch (_) {}
+        }
+        return parsed;
       }
     } catch (e) {
       console.error('Failed to load system settings from localStorage', e);
@@ -103,6 +117,7 @@ export default function App() {
   const [isSystemModalOpen, setIsSystemModalOpen] = useState(false);
   const [editingMoment, setEditingMoment] = useState<Moment | null>(null);
   const [isAdminShieldOpen, setIsAdminShieldOpen] = useState(false);
+  const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
 
   // 8. Toast Notifications
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -378,6 +393,7 @@ export default function App() {
         onLogoutAdmin={handleLogoutAdmin}
         onOpenUploadModal={() => setIsUploadModalOpen(true)}
         onOpenSystemModal={() => setIsSystemModalOpen(true)}
+        onOpenAdminLogin={() => setIsAdminLoginModalOpen(true)}
         profile={systemSettings.profile}
       />
 
@@ -432,7 +448,12 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <Footer language={language} profile={systemSettings.profile} />
+      <Footer
+        language={language}
+        profile={systemSettings.profile}
+        isAdmin={isAdmin}
+        onOpenAdminLogin={() => setIsAdminLoginModalOpen(true)}
+      />
 
       {/* Admin Photo Upload Modal */}
       <PhotoUploadModal
@@ -467,6 +488,14 @@ export default function App() {
         moments={moments}
         onDeleteMoment={handleDeleteMoment}
         onOpenUploadModal={() => setIsUploadModalOpen(true)}
+      />
+      {/* Admin Login Modal (Direct Passcode & Quick Unlock) */}
+      <AdminLoginModal
+        isOpen={isAdminLoginModalOpen}
+        onClose={() => setIsAdminLoginModalOpen(false)}
+        onSuccess={() => setIsAdmin(true)}
+        language={language}
+        onShowToast={showToast}
       />
     </div>
   );

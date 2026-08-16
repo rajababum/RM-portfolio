@@ -34,7 +34,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const heroImageSrc =
     profile.heroImage ||
-    'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEigJOVdrqtnkLss2RrrJH0O1jALyDLxh7ucbNMJyfVcNqHl6AKmjBM_iDIx3pvN7stY5KKY7rlCBHyYcjahSX0sYhTXAfFX3KnRtneH_wcdlhVaqvlCgkjmohZOxvXT1SSKNdpwD-I5RC1gWpncKtv4t5NF4dCQlkN268xu5NNLXaJsLllr5kockudgssXL/s1920/6750.jpg';
+    'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhi7Uh94xTz0y-F0J_tapw44abY8zaSaDjrnGVWMyV-Odly0GMfSYtxK8FVOnFsFi0Nw_IveBY14ECZbwVtn2ab2u2OvbFFjr65hVXXuQKDmFh-U3RzfY1nOfUUF5d11Rjx6cWLUBamvlr4FrpncgobVp_itVNzzeXUKiFeD1UppSfItN2dxNhMq9Tu_JUO/s320/20602.jpg';
 
   const rolesEn = [
     'Visionary Community Leader',

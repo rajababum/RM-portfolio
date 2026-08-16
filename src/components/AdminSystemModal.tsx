@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
@@ -14,16 +14,15 @@ import {
   Trash2,
   CheckCircle2,
   Sparkles,
-  Upload,
-  RefreshCw,
   Image,
   Eye,
   Edit2,
   Calendar,
   Layers,
+  Link,
 } from 'lucide-react';
 import { SystemSettings, Language, StatItem, SkillItem, MilestoneItem, Moment } from '../types';
-import { compressImageFile } from '../utils/imageCompressor';
+import { DEFAULT_SYSTEM_SETTINGS } from '../data/defaults';
 
 interface AdminSystemModalProps {
   isOpen: boolean;
@@ -57,29 +56,6 @@ export const AdminSystemModal: React.FC<AdminSystemModalProps> = ({
   const [deletingMomentId, setDeletingMomentId] = useState<string | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [draft, setDraft] = useState<SystemSettings>(systemSettings);
-  const [isCompressingHero, setIsCompressingHero] = useState(false);
-  const heroFileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleHeroFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    const file = files[0];
-    if (!file.type.startsWith('image/')) {
-      onShowToast(language === 'NE' ? 'कृपया मान्य तस्बिर फाइल छान्नुहोस्।' : 'Please select an image file.', 'error');
-      return;
-    }
-    try {
-      setIsCompressingHero(true);
-      const compressed = await compressImageFile(file, 1200, 0.85);
-      updateProfile('heroImage', compressed);
-      onShowToast(language === 'NE' ? 'प्रोफाइल तस्बिर लोड भयो!' : 'Hero portrait updated from device!', 'success');
-    } catch (err) {
-      console.error(err);
-      onShowToast(language === 'NE' ? 'तस्बिर प्रशोधनमा समस्या आयो।' : 'Failed to compress image.', 'error');
-    } finally {
-      setIsCompressingHero(false);
-    }
-  };
 
   useEffect(() => {
     setDraft(systemSettings);
@@ -292,62 +268,67 @@ export const AdminSystemModal: React.FC<AdminSystemModalProps> = ({
               {/* TAB 1: PROFILE & HERO */}
               {activeTab === 'profile' && (
                 <div className="space-y-5">
-                  {/* Hero Portrait Direct Device Upload */}
-                  <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
-                    <input
-                      type="file"
-                      ref={heroFileInputRef}
-                      onChange={handleHeroFileChange}
-                      accept="image/*"
-                      className="hidden"
-                    />
+                  {/* Hero Portrait URL Configuration (Direct URL only) */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-slate-950 border border-blue-500/20 shadow-inner space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-400">
+                        <Link className="w-4 h-4 text-blue-400" />
+                        <span>{language === 'NE' ? 'शीर्ष प्रोफाइल तस्बिर URL (Hero Image URL)' : 'Top Hero Image URL'}</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateProfile('heroImage', DEFAULT_SYSTEM_SETTINGS.profile.heroImage);
+                          onShowToast(
+                            language === 'NE' ? 'पूर्वनिर्धारित तस्बिर URL लोड भयो!' : 'Loaded default top image URL!',
+                            'info'
+                          );
+                        }}
+                        className="text-[11px] font-semibold text-blue-400 hover:text-blue-300 transition-colors"
+                      >
+                        {language === 'NE' ? 'पूर्वनिर्धारित URL राख्नुहोस्' : 'Reset to Default URL'}
+                      </button>
+                    </div>
 
-                    <label className="block text-xs font-bold uppercase tracking-wider text-blue-400 mb-2">
-                      {language === 'NE' ? 'मुख्य प्रोफाइल तस्बिर (Hero Portrait)' : 'Hero Portrait Image'}
-                    </label>
-
-                    <div className="flex flex-col sm:flex-row items-center gap-4">
-                      <div className="relative w-24 h-24 rounded-2xl overflow-hidden bg-slate-900 border border-slate-700 flex items-center justify-center shrink-0">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                      {/* Live Image Preview */}
+                      <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden bg-slate-900 border-2 border-blue-500/30 flex items-center justify-center shrink-0 shadow-lg shadow-blue-950/50">
                         {draft.profile.heroImage ? (
                           <img
                             src={draft.profile.heroImage}
                             alt={draft.profile.name}
                             referrerPolicy="no-referrer"
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover object-top"
                           />
                         ) : (
                           <User className="w-10 h-10 text-slate-600" />
                         )}
                       </div>
 
-                      <div className="flex-1 min-w-0 space-y-2 text-center sm:text-left">
-                        <p className="text-xs text-slate-400">
-                          {language === 'NE'
-                            ? 'मोबाइल वा कम्प्युटरबाट नयाँ तस्बिर अपलोड गर्नुहोस् वा तल सिधै URL राख्नुहोस्'
-                            : 'Upload a clear portrait from your device or specify an image URL below'}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => heroFileInputRef.current?.click()}
-                          disabled={isCompressingHero}
-                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 text-xs font-semibold transition-all active:scale-95"
-                        >
-                          {isCompressingHero ? (
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Upload className="w-3.5 h-3.5" />
+                      {/* URL input and explanation */}
+                      <div className="flex-1 w-full space-y-2">
+                        <div className="relative">
+                          <input
+                            type="url"
+                            value={draft.profile.heroImage}
+                            onChange={(e) => updateProfile('heroImage', e.target.value)}
+                            placeholder="https://blogger.googleusercontent.com/..."
+                            className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs font-mono focus:outline-none focus:border-blue-500 transition-colors"
+                          />
+                          {draft.profile.heroImage && (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 absolute right-3.5 top-3.5" />
                           )}
-                          <span>
-                            {isCompressingHero
-                              ? (language === 'NE' ? 'प्रशोधन हुँदै...' : 'Compressing...')
-                              : (language === 'NE' ? 'डिभाइसबाट तस्बिर छान्नुहोस्' : 'Upload from Device')}
-                          </span>
-                        </button>
+                        </div>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          {language === 'NE'
+                            ? 'शीर्ष प्रोफाइल तस्बिर सिधै वेब इमेज URL द्वारा मात्र परिवर्तन गरिन्छ (अपलोड अनुमति छैन)।'
+                            : 'The top portrait photo is changed strictly through image URL (direct upload disabled).'}
+                        </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                         Full Name
@@ -357,19 +338,6 @@ export const AdminSystemModal: React.FC<AdminSystemModalProps> = ({
                         value={draft.profile.name}
                         onChange={(e) => updateProfile('name', e.target.value)}
                         className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                        Profile Image URL (Alternative)
-                      </label>
-                      <input
-                        type="url"
-                        value={draft.profile.heroImage}
-                        onChange={(e) => updateProfile('heroImage', e.target.value)}
-                        placeholder="https://..."
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-blue-500 font-mono text-xs"
                       />
                     </div>
                   </div>

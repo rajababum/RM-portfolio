@@ -277,7 +277,11 @@ export const JourneySection: React.FC<JourneySectionProps> = ({
                     {/* Hover Toolbar overlay */}
                     <div className="absolute inset-0 z-30 bg-slate-950/60 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-3">
                       <button
-                        onClick={() => setActiveLightboxMoment(moment)}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveLightboxMoment(moment);
+                        }}
                         className="p-3 rounded-2xl bg-blue-600/90 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/40 transition-transform active:scale-90"
                         title="View Full Uncropped Photo & Comments"
                         aria-label="View photo details"
@@ -288,7 +292,11 @@ export const JourneySection: React.FC<JourneySectionProps> = ({
                       {isAdmin && (
                         <>
                           <button
-                            onClick={() => onOpenEditModal(moment)}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenEditModal(moment);
+                            }}
                             className="p-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shadow-lg transition-transform active:scale-90"
                             title="Edit metadata & Likes"
                             aria-label="Edit moment"
@@ -297,8 +305,12 @@ export const JourneySection: React.FC<JourneySectionProps> = ({
                           </button>
 
                           <button
-                            onClick={() => setPhotoToDelete(moment)}
-                            className="p-3 rounded-2xl bg-rose-600/90 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/40 transition-transform active:scale-90"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPhotoToDelete(moment);
+                            }}
+                            className="p-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/40 transition-transform active:scale-90"
                             title={language === 'NE' ? 'तस्बिर स्थायी रूपमा मेटाउनुहोस्' : 'Delete photo permanently'}
                             aria-label="Delete photo"
                           >
