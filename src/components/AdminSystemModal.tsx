@@ -54,6 +54,8 @@ export const AdminSystemModal: React.FC<AdminSystemModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'about' | 'experience' | 'contact' | 'autoLikes' | 'photos'>('profile');
   const [photoSearch, setPhotoSearch] = useState('');
+  const [deletingMomentId, setDeletingMomentId] = useState<string | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [draft, setDraft] = useState<SystemSettings>(systemSettings);
   const [isCompressingHero, setIsCompressingHero] = useState(false);
   const heroFileInputRef = useRef<HTMLInputElement>(null);
@@ -94,11 +96,10 @@ export const AdminSystemModal: React.FC<AdminSystemModalProps> = ({
   };
 
   const handleReset = () => {
-    if (window.confirm(language === 'NE' ? 'के तपाईँ सबै सेटिङ्स पूर्वनिर्धारित अवस्थामा फर्काउन चाहनुहुन्छ?' : 'Reset all system settings back to default values?')) {
-      onResetToDefaults();
-      onShowToast(language === 'NE' ? 'पूर्वनिर्धारित सेटिङ्स पुन:स्थापित भयो।' : 'System settings reset to default.', 'info');
-      onClose();
-    }
+    onResetToDefaults();
+    onShowToast(language === 'NE' ? 'पूर्वनिर्धारित सेटिङ्स पुन:स्थापित भयो।' : 'System settings reset to default.', 'info');
+    setShowResetConfirm(false);
+    onClose();
   };
 
   // Helper state updates
@@ -971,33 +972,48 @@ export const AdminSystemModal: React.FC<AdminSystemModalProps> = ({
                               </span>
 
                               {onDeleteMoment && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (
-                                      window.confirm(
-                                        language === 'NE'
-                                          ? `के तपाईँ "${moment.titleNe || moment.titleEn}" तस्बिर निश्चित रूपमा मेटाउन चाहनुहुन्छ?`
-                                          : `Are you sure you want to permanently delete "${moment.titleEn}"?`
-                                      )
-                                    ) {
-                                      onDeleteMoment(moment.id);
-                                      onShowToast(
-                                        language === 'NE'
-                                          ? 'तस्बिर सफलतापूर्वक मेटाइयो।'
-                                          : 'Photo deleted from gallery.',
-                                        'info'
-                                      );
-                                    }
-                                  }}
-                                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-600 border border-rose-800/80 hover:border-rose-600 text-rose-300 hover:text-white text-xs font-semibold shadow-md transition-all active:scale-95"
-                                  title={language === 'NE' ? 'तस्बिर मेटाउनुहोस्' : 'Delete photo'}
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                  <span className="hidden sm:inline">
-                                    {language === 'NE' ? 'मेटाउनुहोस्' : 'Delete'}
-                                  </span>
-                                </button>
+                                <>
+                                  {deletingMomentId === moment.id ? (
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          onDeleteMoment(moment.id);
+                                          setDeletingMomentId(null);
+                                          onShowToast(
+                                            language === 'NE'
+                                              ? 'तस्बिर स्थायी रूपमा मेटाइयो (रिकभर हुने छैन)।'
+                                              : 'Photo permanently deleted (cannot be recovered).',
+                                            'info'
+                                          );
+                                        }}
+                                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md animate-pulse active:scale-95 transition-all"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <span>{language === 'NE' ? 'पक्का मेटाउने ?' : 'Confirm?'}</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setDeletingMomentId(null)}
+                                        className="px-2 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium"
+                                      >
+                                        {language === 'NE' ? 'रद्द' : 'Cancel'}
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => setDeletingMomentId(moment.id)}
+                                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-600 border border-rose-800/80 hover:border-rose-600 text-rose-300 hover:text-white text-xs font-semibold shadow-md transition-all active:scale-95"
+                                      title={language === 'NE' ? 'तस्बिर स्थायी रूपमा मेटाउनुहोस्' : 'Delete photo permanently'}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      <span className="hidden sm:inline">
+                                        {language === 'NE' ? 'मेटाउनुहोस्' : 'Delete'}
+                                      </span>
+                                    </button>
+                                  )}
+                                </>
                               )}
                             </div>
                           </div>
@@ -1009,15 +1025,35 @@ export const AdminSystemModal: React.FC<AdminSystemModalProps> = ({
 
               {/* Action Buttons */}
               <div className="pt-6 border-t border-slate-800 flex items-center justify-between shrink-0">
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-950 hover:bg-rose-950/30 text-rose-400 border border-rose-500/20 text-xs font-semibold transition-all"
-                  title="Reset settings to factory defaults"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>{language === 'NE' ? 'पूर्वनिर्धारितमा फर्काउनुहोस्' : 'Reset Defaults'}</span>
-                </button>
+                {showResetConfirm ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md animate-pulse active:scale-95 transition-all"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>{language === 'NE' ? 'पक्का रिसेट गर्ने ?' : 'Confirm Reset Now'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowResetConfirm(false)}
+                      className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium"
+                    >
+                      {language === 'NE' ? 'रद्द' : 'Cancel'}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowResetConfirm(true)}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-950 hover:bg-rose-950/30 text-rose-400 border border-rose-500/20 text-xs font-semibold transition-all"
+                    title="Reset settings to factory defaults"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>{language === 'NE' ? 'पूर्वनिर्धारितमा फर्काउनुहोस्' : 'Reset Defaults'}</span>
+                  </button>
+                )}
 
                 <div className="flex items-center gap-3">
                   <button

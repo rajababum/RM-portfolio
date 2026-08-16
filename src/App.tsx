@@ -50,16 +50,22 @@ export default function App() {
     return DEFAULT_SYSTEM_SETTINGS;
   });
 
-  // 4. Moments Gallery State
+  // 4. Moments Gallery State (Permanent persistence with deletion tombstone protection)
   const [moments, setMoments] = useState<Moment[]>(() => {
     try {
+      const deletedIdsStr = localStorage.getItem(STORAGE_KEYS.DELETED_MOMENT_IDS);
+      const deletedIds: string[] = deletedIdsStr ? JSON.parse(deletedIdsStr) : [];
+
       const saved = localStorage.getItem(STORAGE_KEYS.CUSTOM_MOMENTS);
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+        if (Array.isArray(parsed)) {
+          // Permanently filter out any deleted photos
+          return parsed.filter((m: Moment) => !deletedIds.includes(m.id));
         }
       }
+      // If first launch, load defaults excluding any permanently deleted IDs
+      return DEFAULT_MOMENTS.filter((m) => !deletedIds.includes(m.id));
     } catch (e) {
       console.error('Failed to load moments from localStorage', e);
     }
@@ -191,6 +197,17 @@ export default function App() {
   };
 
   const handleAddMoment = (newMoment: Moment) => {
+    // If this ID was previously marked deleted, remove it from tombstone blacklist
+    try {
+      const deletedIdsStr = localStorage.getItem(STORAGE_KEYS.DELETED_MOMENT_IDS);
+      if (deletedIdsStr) {
+        const deletedIds: string[] = JSON.parse(deletedIdsStr);
+        const nextDeleted = deletedIds.filter((id) => id !== newMoment.id);
+        localStorage.setItem(STORAGE_KEYS.DELETED_MOMENT_IDS, JSON.stringify(nextDeleted));
+      }
+    } catch (e) {
+      console.error(e);
+    }
     setMoments((prev) => [newMoment, ...prev]);
   };
 
@@ -199,7 +216,51 @@ export default function App() {
   };
 
   const handleDeleteMoment = (id: string) => {
-    setMoments((prev) => prev.filter((m) => m.id !== id));
+    // 1. Permanently record this ID into deleted blacklist in localStorage
+    try {
+      const deletedIdsStr = localStorage.getItem(STORAGE_KEYS.DELETED_MOMENT_IDS);
+      const deletedIds: string[] = deletedIdsStr ? JSON.parse(deletedIdsStr) : [];
+      if (!deletedIds.includes(id)) {
+        deletedIds.push(id);
+        localStorage.setItem(STORAGE_KEYS.DELETED_MOMENT_IDS, JSON.stringify(deletedIds));
+      }
+    } catch (e) {
+      console.error('Failed to update permanent deleted IDs', e);
+    }
+
+    // 2. Remove photo permanently from moments state and immediate localStorage
+    setMoments((prev) => {
+      const remaining = prev.filter((m) => m.id !== id);
+      try {
+        localStorage.setItem(STORAGE_KEYS.CUSTOM_MOMENTS, JSON.stringify(remaining));
+      } catch (e) {
+        console.error('Failed to persist moments after deletion', e);
+      }
+      return remaining;
+    });
+
+    // 3. Purge associated comments from state and localStorage
+    setCommentsMap((prev) => {
+      const nextComments = { ...prev };
+      delete nextComments[id];
+      try {
+        localStorage.setItem(STORAGE_KEYS.COMMENTS_MAP, JSON.stringify(nextComments));
+      } catch (e) {
+        console.error('Failed to clean comments', e);
+      }
+      return nextComments;
+    });
+
+    // 4. Purge from user liked moments
+    setUserLikedMoments((prev) => {
+      const nextLikes = prev.filter((item) => item !== id);
+      try {
+        localStorage.setItem(STORAGE_KEYS.USER_LIKED_MOMENTS, JSON.stringify(nextLikes));
+      } catch (e) {
+        console.error('Failed to clean likes', e);
+      }
+      return nextLikes;
+    });
   };
 
   const handleLikeMoment = (id: string) => {
@@ -262,13 +323,34 @@ export default function App() {
     });
   };
 
+  const handleDeleteComment = (momentId: string, commentId: string) => {
+    setCommentsMap((prev) => {
+      const currentList = prev[momentId] || [];
+      const updatedList = currentList.filter((c) => c.id !== commentId);
+      const nextMap = { ...prev, [momentId]: updatedList };
+      try {
+        localStorage.setItem(STORAGE_KEYS.COMMENTS_MAP, JSON.stringify(nextMap));
+      } catch (e) {
+        console.error(e);
+      }
+      return nextMap;
+    });
+    showToast(
+      language === 'NE' ? 'प्रतिक्रिया हटाइयो।' : 'Comment deleted.',
+      'info'
+    );
+  };
+
   const handleSaveSystemSettings = (updated: SystemSettings) => {
     setSystemSettings(updated);
   };
 
   const handleResetToDefaults = () => {
     setSystemSettings(DEFAULT_SYSTEM_SETTINGS);
-    setMoments(DEFAULT_MOMENTS);
+    const deletedIdsStr = localStorage.getItem(STORAGE_KEYS.DELETED_MOMENT_IDS);
+    const deletedIds: string[] = deletedIdsStr ? JSON.parse(deletedIdsStr) : [];
+    const nonDeletedMoments = DEFAULT_MOMENTS.filter((m) => !deletedIds.includes(m.id));
+    setMoments(nonDeletedMoments);
     setCommentsMap(DEFAULT_COMMENTS_MAP);
     setUserLikedMoments([]);
   };
@@ -330,6 +412,7 @@ export default function App() {
           onAutoBoostAllLikes={handleAutoBoostAllLikes}
           commentsMap={commentsMap}
           onAddComment={handleAddComment}
+          onDeleteComment={handleDeleteComment}
           onShowToast={showToast}
         />
 

@@ -4,6 +4,7 @@ export const STORAGE_KEYS = {
   ADMIN_AUTH: 'rajababu_portfolio_admin_auth',
   SYSTEM_SETTINGS: 'rajababu_portfolio_system_settings',
   CUSTOM_MOMENTS: 'rajababu_portfolio_custom_moments',
+  DELETED_MOMENT_IDS: 'rajababu_portfolio_deleted_moment_ids',
   COMMENTS_MAP: 'rajababu_portfolio_comments_map',
   USER_LIKED_MOMENTS: 'rajababu_portfolio_user_liked_moments',
   LANGUAGE: 'rajababu_portfolio_language',
