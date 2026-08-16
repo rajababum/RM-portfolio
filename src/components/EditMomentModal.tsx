@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
@@ -8,10 +8,13 @@ import {
   Tag,
   Trash2,
   CheckCircle2,
+  Upload,
+  RefreshCw,
   Sparkles,
 } from 'lucide-react';
 import { Language, Moment } from '../types';
 import { generateLikesFromPreset, formatLikes } from '../utils/likesFormatter';
+import { compressImageFile } from '../utils/imageCompressor';
 
 interface EditMomentModalProps {
   moment: Moment | null;
@@ -38,8 +41,11 @@ export const EditMomentModal: React.FC<EditMomentModalProps> = ({
   const [descNe, setDescNe] = useState('');
   const [category, setCategory] = useState('Technology');
   const [eventDate, setEventDate] = useState('');
+  const [imgUrl, setImgUrl] = useState('');
   const [likes, setLikes] = useState<number>(0);
   const [customLikesInput, setCustomLikesInput] = useState<string>('');
+  const [isCompressing, setIsCompressing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (moment) {
@@ -49,6 +55,7 @@ export const EditMomentModal: React.FC<EditMomentModalProps> = ({
       setDescNe(moment.descNe);
       setCategory(moment.category);
       setEventDate(moment.date);
+      setImgUrl(moment.imgUrl);
       setLikes(moment.likes);
       setCustomLikesInput(moment.likes.toString());
     }
@@ -72,6 +79,38 @@ export const EditMomentModal: React.FC<EditMomentModalProps> = ({
     }
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    if (!file.type.startsWith('image/')) {
+      onShowToast(
+        language === 'NE' ? 'कृपया मान्य तस्बिर फाइल छान्नुहोस्।' : 'Please select a valid image file.',
+        'error'
+      );
+      return;
+    }
+
+    try {
+      setIsCompressing(true);
+      const compressed = await compressImageFile(file, 1400, 0.85);
+      setImgUrl(compressed);
+      onShowToast(
+        language === 'NE' ? 'नयाँ तस्बिर सफलतापूर्वक लोड भयो!' : 'New photo loaded & compressed!',
+        'success'
+      );
+    } catch (err) {
+      console.error(err);
+      onShowToast(
+        language === 'NE' ? 'तस्बिर प्रशोधनमा समस्या आयो।' : 'Failed to process image file.',
+        'error'
+      );
+    } finally {
+      setIsCompressing(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -81,18 +120,28 @@ export const EditMomentModal: React.FC<EditMomentModalProps> = ({
       titleNe: titleNe.trim() || moment.titleNe,
       descEn: descEn.trim() || moment.descEn,
       descNe: descNe.trim() || moment.descNe,
+      imgUrl: imgUrl || moment.imgUrl,
       category,
       date: eventDate,
       likes: Math.max(0, likes),
     };
 
     onUpdateMoment(updated);
-    onShowToast(language === 'NE' ? 'तस्बिर विवरण अद्यावधिक भयो!' : 'Moment details updated successfully!', 'success');
+    onShowToast(
+      language === 'NE' ? 'तस्बिर विवरण अद्यावधिक भयो!' : 'Moment details updated successfully!',
+      'success'
+    );
     onClose();
   };
 
   const handleDelete = () => {
-    if (window.confirm(language === 'NE' ? 'के तपाईँ यो तस्बिर मेटाउन चाहनुहुन्छ?' : 'Are you sure you want to permanently delete this photo?')) {
+    if (
+      window.confirm(
+        language === 'NE'
+          ? 'के तपाईँ यो तस्बिर मेटाउन चाहनुहुन्छ?'
+          : 'Are you sure you want to permanently delete this photo?'
+      )
+    ) {
       onDeleteMoment(moment.id);
       onShowToast(language === 'NE' ? 'तस्बिर हटाइयो।' : 'Moment deleted from gallery.', 'info');
       onClose();
@@ -125,7 +174,7 @@ export const EditMomentModal: React.FC<EditMomentModalProps> = ({
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-slate-100 font-heading">
-                    {language === 'NE' ? 'तस्बिर विवरण सम्पादन गर्नुहोस्' : 'Edit Moment Metadata & Likes'}
+                    {language === 'NE' ? 'तस्बिर विवरण सम्पादन गर्नुहोस्' : 'Edit Moment & Photo'}
                   </h3>
                   <p className="text-xs text-slate-400">
                     ID: <span className="font-mono text-slate-300">{moment.id}</span>
@@ -142,20 +191,54 @@ export const EditMomentModal: React.FC<EditMomentModalProps> = ({
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-5 overflow-y-auto pr-1 flex-1">
-              
-              {/* Photo Thumbnail */}
-              <div className="flex items-center gap-4 p-3 rounded-2xl bg-slate-950 border border-slate-800">
-                <img
-                  src={moment.imgUrl}
-                  alt={moment.titleEn}
-                  referrerPolicy="no-referrer"
-                  className="w-16 h-16 rounded-xl object-cover border border-slate-800 shrink-0"
+              {/* Photo Display & Direct Device Upload / Replace */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/*"
+                  className="hidden"
                 />
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                    {language === 'NE' ? 'तस्बिर लिंक (स्थिर)' : 'Photo Source'}
+
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <div className="relative w-28 h-28 rounded-2xl overflow-hidden bg-slate-900 border border-slate-700 flex items-center justify-center shrink-0">
+                    <img
+                      src={imgUrl}
+                      alt={titleEn}
+                      referrerPolicy="no-referrer"
+                      className="max-h-full max-w-full object-contain"
+                    />
                   </div>
-                  <div className="text-xs text-slate-300 truncate font-mono">{moment.imgUrl}</div>
+
+                  <div className="flex-1 min-w-0 space-y-2 text-center sm:text-left">
+                    <div className="text-xs font-bold text-slate-200">
+                      {language === 'NE' ? 'तस्बिर परिवर्तन गर्नुहोस्' : 'Change Photo from Device'}
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      {language === 'NE'
+                        ? 'आफ्नो कम्प्युटर वा मोबाइलबाट नयाँ तस्बिर सिधै अपलोड गर्नुहोस्'
+                        : 'Upload a replacement photo directly from your device storage.'}
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isCompressing}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 text-xs font-semibold transition-all active:scale-95"
+                    >
+                      {isCompressing ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Upload className="w-3.5 h-3.5" />
+                      )}
+                      <span>
+                        {isCompressing
+                          ? (language === 'NE' ? 'प्रशोधन हुँदै...' : 'Compressing...')
+                          : (language === 'NE' ? 'नयाँ तस्बिर छान्नुहोस्' : 'Browse New Photo')}
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -322,7 +405,7 @@ export const EditMomentModal: React.FC<EditMomentModalProps> = ({
 
                   <button
                     type="submit"
-                    className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 transition-all"
+                    className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 transition-all active:scale-95"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>{language === 'NE' ? 'परिवर्तन सुरक्षित गर्नुहोस्' : 'Save Changes'}</span>

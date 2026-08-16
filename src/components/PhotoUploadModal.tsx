@@ -3,18 +3,28 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
   Upload,
-  Link,
   Image as ImageIcon,
   Heart,
-  Sparkles,
   Calendar,
   Tag,
   CheckCircle2,
   Trash2,
+  RefreshCw,
+  Layers,
+  Sparkles,
+  Link,
+  Plus,
 } from 'lucide-react';
 import { Language, Moment } from '../types';
 import { compressImageFile } from '../utils/imageCompressor';
 import { generateLikesFromPreset, formatLikes } from '../utils/likesFormatter';
+
+interface UploadedFileItem {
+  id: string;
+  dataUrl: string;
+  name: string;
+  size: number;
+}
 
 interface PhotoUploadModalProps {
   isOpen: boolean;
@@ -31,9 +41,12 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
   onAddMoment,
   onShowToast,
 }) => {
-  const [sourceType, setSourceType] = useState<'upload' | 'url'>('upload');
-  const [imageUrl, setImageUrl] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFileItem[]>([]);
+  const [activeFileIndex, setActiveFileIndex] = useState<number>(0);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [showUrlFallback, setShowUrlFallback] = useState(false);
+  const [fallbackUrl, setFallbackUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Metadata form states
@@ -51,87 +64,181 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
 
   const predefinedCategories = ['Technology', 'Community', 'Networking', 'Professional', 'Milestone', 'Personal', 'Other'];
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const processFiles = async (files: FileList | File[]) => {
+    const validImageFiles = Array.from(files).filter((f) => f.type.startsWith('image/'));
 
-    const file = files[0];
-    if (!file.type.startsWith('image/')) {
-      onShowToast(language === 'NE' ? 'कृपया मान्य तस्बिर फाइल छान्नुहोस्।' : 'Please select a valid image file.', 'error');
+    if (validImageFiles.length === 0) {
+      onShowToast(
+        language === 'NE'
+          ? 'कृपया मान्य तस्बिर फाइलहरू (JPG, PNG, WebP) छान्नुहोस्।'
+          : 'Please select valid image files (JPG, PNG, WebP).',
+        'error'
+      );
       return;
     }
 
     try {
       setIsCompressing(true);
-      const compressedDataUrl = await compressImageFile(file, 1400, 0.85);
-      setImageUrl(compressedDataUrl);
-      onShowToast(language === 'NE' ? 'तस्बिर सफलतापूर्वक तयार भयो!' : 'Photo processed and compressed!', 'success');
+      const newItems: UploadedFileItem[] = [];
+
+      for (let i = 0; i < validImageFiles.length; i++) {
+        const file = validImageFiles[i];
+        const compressedDataUrl = await compressImageFile(file, 1400, 0.85);
+        newItems.push({
+          id: `file-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 4)}`,
+          dataUrl: compressedDataUrl,
+          name: file.name.replace(/\.[^/.]+$/, ''),
+          size: file.size,
+        });
+      }
+
+      setUploadedFiles((prev) => {
+        const combined = [...prev, ...newItems];
+        if (prev.length === 0 && newItems.length > 0) {
+          setTitleEn(newItems[0].name.replace(/[-_]/g, ' '));
+        }
+        return combined;
+      });
+
+      onShowToast(
+        language === 'NE'
+          ? `${newItems.length} तस्बिर(हरू) सफलतापूर्वक लोड गरियो!`
+          : `${newItems.length} photo(s) processed & compressed successfully!`,
+        'success'
+      );
     } catch (err) {
       console.error(err);
-      onShowToast(language === 'NE' ? 'तस्बिर प्रशोधन गर्न समस्या भयो।' : 'Failed to process image file.', 'error');
+      onShowToast(
+        language === 'NE' ? 'तस्बिर प्रशोधन गर्न समस्या भयो।' : 'Failed to compress image file.',
+        'error'
+      );
     } finally {
       setIsCompressing(false);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      await processFiles(e.target.files);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
   };
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
-    const files = e.dataTransfer.files;
-    if (!files || files.length === 0) return;
-
-    const file = files[0];
-    if (!file.type.startsWith('image/')) {
-      onShowToast(language === 'NE' ? 'कृपया मान्य तस्बिर फाइल छान्नुहोस्।' : 'Please drop an image file.', 'error');
-      return;
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      await processFiles(e.dataTransfer.files);
     }
+  };
 
-    try {
-      setIsCompressing(true);
-      const compressedDataUrl = await compressImageFile(file, 1400, 0.85);
-      setImageUrl(compressedDataUrl);
-      onShowToast(language === 'NE' ? 'तस्बिर सफलतापूर्वक तयार भयो!' : 'Photo loaded and compressed!', 'success');
-    } catch (err) {
-      console.error(err);
-      onShowToast(language === 'NE' ? 'तस्बिर प्रशोधन गर्न समस्या भयो।' : 'Failed to process dropped image.', 'error');
-    } finally {
-      setIsCompressing(false);
-    }
+  const handleRemoveUploadedItem = (indexToRemove: number) => {
+    setUploadedFiles((prev) => {
+      const updated = prev.filter((_, idx) => idx !== indexToRemove);
+      if (activeFileIndex >= updated.length) {
+        setActiveFileIndex(Math.max(0, updated.length - 1));
+      }
+      return updated;
+    });
+  };
+
+  const handleAddUrlPhoto = () => {
+    if (!fallbackUrl.trim()) return;
+    setUploadedFiles((prev) => [
+      ...prev,
+      {
+        id: `url-${Date.now()}`,
+        dataUrl: fallbackUrl.trim(),
+        name: 'Web Image',
+        size: 0,
+      },
+    ]);
+    setFallbackUrl('');
+    setShowUrlFallback(false);
+    onShowToast(language === 'NE' ? 'तस्बिर लिंक थपियो!' : 'Image link attached!', 'success');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!imageUrl) {
-      onShowToast(language === 'NE' ? 'कृपया पहिले तस्बिर छान्नुहोस् वा URL राख्नुहोस्।' : 'Please provide or upload a photo.', 'error');
+    if (uploadedFiles.length === 0) {
+      onShowToast(
+        language === 'NE'
+          ? 'कृपया पहिले आफ्नो डिभाइसबाट तस्बिर अपलोड गर्नुहोस्।'
+          : 'Please upload at least one photo from your device.',
+        'error'
+      );
       return;
     }
 
     const finalCategory = category === 'Other' ? (customCategory.trim() || 'General') : category;
-    const generatedLikes = generateLikesFromPreset(likePreset, customLikesVal);
 
-    const newMoment: Moment = {
-      id: `moment-user-${Date.now()}`,
-      titleEn: titleEn.trim() || 'Visual Milestone Moment',
-      titleNe: titleNe.trim() || (titleEn.trim() || 'दृश्यात्मक माइलस्टोन'),
-      descEn: descEn.trim() || 'Empowering leadership, community collaboration, and technological growth.',
-      descNe: descNe.trim() || (descEn.trim() || 'सशक्त नेतृत्व, सामुदायिक सहकार्य र प्राविधिक विकास।'),
-      imgUrl: imageUrl,
-      likes: generatedLikes,
-      category: finalCategory,
-      date: eventDate,
-      isUserUploaded: true,
-      uploadedAt: new Date().toISOString(),
-    };
+    // If single image or currently configured
+    if (uploadedFiles.length === 1) {
+      const targetItem = uploadedFiles[0];
+      const generatedLikes = generateLikesFromPreset(likePreset, customLikesVal);
 
-    onAddMoment(newMoment);
-    onShowToast(language === 'NE' ? 'नयाँ तस्बिर सफलतापूर्वक ग्यालरीमा थपियो!' : 'New moment uploaded to gallery!', 'success');
+      const newMoment: Moment = {
+        id: `moment-user-${Date.now()}`,
+        titleEn: titleEn.trim() || targetItem.name || 'Visual Milestone Moment',
+        titleNe: titleNe.trim() || (titleEn.trim() || 'दृश्यात्मक माइलस्टोन'),
+        descEn: descEn.trim() || 'Empowering leadership, community collaboration, and technological growth.',
+        descNe: descNe.trim() || (descEn.trim() || 'सशक्त नेतृत्व, सामुदायिक सहकार्य र प्राविधिक विकास।'),
+        imgUrl: targetItem.dataUrl,
+        likes: generatedLikes,
+        category: finalCategory,
+        date: eventDate,
+        isUserUploaded: true,
+        uploadedAt: new Date().toISOString(),
+      };
 
-    // Reset fields & close
-    setImageUrl('');
+      onAddMoment(newMoment);
+    } else {
+      // Multiple images batch upload
+      uploadedFiles.forEach((item, index) => {
+        const generatedLikes = generateLikesFromPreset(likePreset, customLikesVal);
+        const itemTitleEn = index === 0 && titleEn.trim() ? titleEn.trim() : (item.name || `Visual Moment ${index + 1}`);
+        const itemTitleNe = index === 0 && titleNe.trim() ? titleNe.trim() : itemTitleEn;
+
+        const newMoment: Moment = {
+          id: `moment-user-${Date.now()}-${index}`,
+          titleEn: itemTitleEn,
+          titleNe: itemTitleNe,
+          descEn: descEn.trim() || 'Empowering leadership, community collaboration, and technological growth.',
+          descNe: descNe.trim() || 'सशक्त नेतृत्व, सामुदायिक सहकार्य र प्राविधिक विकास।',
+          imgUrl: item.dataUrl,
+          likes: generatedLikes,
+          category: finalCategory,
+          date: eventDate,
+          isUserUploaded: true,
+          uploadedAt: new Date().toISOString(),
+        };
+
+        onAddMoment(newMoment);
+      });
+    }
+
+    onShowToast(
+      language === 'NE'
+        ? `${uploadedFiles.length} नयाँ तस्बिर(हरू) ग्यालरीमा सुरक्षित भयो!`
+        : `${uploadedFiles.length} photo(s) added to gallery!`,
+      'success'
+    );
+
+    // Reset & close
+    setUploadedFiles([]);
     setTitleEn('');
     setTitleNe('');
     setDescEn('');
@@ -139,6 +246,8 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
     setCustomCategory('');
     onClose();
   };
+
+  const currentPreview = uploadedFiles[activeFileIndex] || uploadedFiles[0];
 
   return (
     <AnimatePresence>
@@ -162,14 +271,16 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
             <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-400">
-                  <ImageIcon className="w-5 h-5" />
+                  <Upload className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-slate-100 font-heading">
-                    {language === 'NE' ? 'नयाँ तस्बिर अपलोड गर्नुहोस्' : 'Upload New Moment'}
+                    {language === 'NE' ? 'डिभाइसबाट तस्बिर अपलोड गर्नुहोस्' : 'Direct Photo Upload System'}
                   </h3>
                   <p className="text-xs text-slate-400">
-                    {language === 'NE' ? 'अनक्रप गरिएको तस्बिर र स्वतः-लाइक्स इन्जिन' : 'Uncropped high-res display with auto-likes engine'}
+                    {language === 'NE'
+                      ? 'तपाईँको मोबाइल वा कम्प्युटरबाट सिधै तस्बिर छान्नुहोस् वा ड्र्याग गर्नुहोस्'
+                      : 'Select or drag photos directly from phone/PC with canvas auto-compression'}
                   </p>
                 </div>
               </div>
@@ -184,89 +295,171 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
             {/* Scrollable Form Body */}
             <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto pr-1 flex-1">
               
-              {/* Photo Source Selector (Upload vs URL) */}
+              {/* PRIMARY UPLOAD DROP ZONE ON TOP */}
               <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <button
-                    type="button"
-                    onClick={() => setSourceType('upload')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                      sourceType === 'upload'
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                        : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
-                    }`}
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>{language === 'NE' ? 'फाइल अपलोड (कम्प्रेस सहित)' : 'Upload File (Auto-Compress)'}</span>
-                  </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                />
 
-                  <button
-                    type="button"
-                    onClick={() => setSourceType('url')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                      sourceType === 'url'
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                        : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
-                    }`}
-                  >
-                    <Link className="w-3.5 h-3.5" />
-                    <span>{language === 'NE' ? 'वेब इमेज लिंक (URL)' : 'Web Image Link (URL)'}</span>
-                  </button>
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-3xl p-6 sm:p-8 text-center cursor-pointer transition-all duration-300 relative group overflow-hidden ${
+                    isDragging
+                      ? 'border-blue-500 bg-blue-950/30 scale-[1.01]'
+                      : 'border-slate-700 hover:border-blue-500/80 bg-slate-950/70 hover:bg-slate-950'
+                  }`}
+                >
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-blue-600/30 group-hover:scale-110 transition-transform">
+                      {isCompressing ? (
+                        <RefreshCw className="w-7 h-7 animate-spin" />
+                      ) : (
+                        <Upload className="w-7 h-7" />
+                      )}
+                    </div>
+
+                    <div>
+                      <h4 className="text-base font-bold text-slate-100 mb-1 font-heading">
+                        {isCompressing
+                          ? (language === 'NE' ? 'तस्बिरहरू कम्प्रेस र अप्टिमाइज गरिँदैछ...' : 'Optimizing & Compressing Photos...')
+                          : (language === 'NE' ? 'यहाँ थिचेर तस्बिर छान्नुहोस् वा ड्रप गर्नुहोस्' : 'Tap to Browse or Drag Photos Here')}
+                      </h4>
+                      <p className="text-xs text-slate-400 max-w-md mx-auto">
+                        {language === 'NE'
+                          ? 'मोबाइल ग्यालरी, क्यामेरा वा कम्प्युटरबाट एक वा धेरै तस्बिरहरू सिधै चयन गर्नुहोस् (JPG, PNG, WebP)'
+                          : 'Select one or multiple photos directly from your phone gallery or PC (JPG, PNG, WebP)'}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-950/60 border border-blue-800/40 text-[11px] font-semibold text-blue-300">
+                        <Sparkles className="w-3 h-3 text-amber-300" />
+                        {language === 'NE' ? 'अनक्रप एचडी डिस्प्ले' : 'Uncropped High-Res'}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-semibold text-slate-300">
+                        <Layers className="w-3 h-3 text-blue-400" />
+                        {language === 'NE' ? 'मल्टी-अपलोड सपोर्ट' : 'Batch Upload Ready'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                {sourceType === 'upload' ? (
-                  <div
-                    onDragOver={handleDragOver}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-2xl p-6 text-center bg-slate-950/60 cursor-pointer transition-colors group"
+                {/* Optional Web URL Accordion Trigger */}
+                <div className="mt-2 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setShowUrlFallback(!showUrlFallback)}
+                    className="text-[11px] text-slate-400 hover:text-blue-400 flex items-center gap-1 transition-colors"
                   >
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileChange}
-                      accept="image/*"
-                      className="hidden"
-                    />
-                    <Upload className="w-8 h-8 text-slate-500 group-hover:text-blue-400 mx-auto mb-2 transition-colors" />
-                    <div className="text-sm font-semibold text-slate-200 mb-1">
-                      {isCompressing
-                        ? (language === 'NE' ? 'तस्बिर कम्प्रेस गरिँदैछ...' : 'Compressing photo on canvas...')
-                        : (language === 'NE' ? 'यहाँ तस्बिर ड्र्याग गर्नुहोस् वा छान्नुहोस्' : 'Click to select or drag photo here')}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      JPG, PNG, WebP • Auto-optimized for crisp rendering
-                    </div>
-                  </div>
-                ) : (
-                  <div>
+                    <Link className="w-3 h-3" />
+                    <span>{language === 'NE' ? 'वा बाह्य इमेज लिंक (URL) प्रयोग गर्नुहोस्' : 'Or attach an external image link'}</span>
+                  </button>
+
+                  {uploadedFiles.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-[11px] text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>{language === 'NE' ? 'थप तस्बिर जोड्नुहोस्' : 'Add more photos'}</span>
+                    </button>
+                  )}
+                </div>
+
+                {showUrlFallback && (
+                  <div className="mt-3 p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center gap-2">
                     <input
                       type="url"
-                      placeholder="https://images.unsplash.com/... or any image link"
-                      value={imageUrl}
-                      onChange={(e) => setImageUrl(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                )}
-
-                {/* Photo Preview Box */}
-                {imageUrl && (
-                  <div className="mt-3 relative rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 aspect-[16/9] flex items-center justify-center">
-                    <img
-                      src={imageUrl}
-                      alt="Preview"
-                      referrerPolicy="no-referrer"
-                      className="max-h-full max-w-full object-contain"
+                      placeholder="https://images.unsplash.com/photo-..."
+                      value={fallbackUrl}
+                      onChange={(e) => setFallbackUrl(e.target.value)}
+                      className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs focus:outline-none focus:border-blue-500 font-mono"
                     />
                     <button
                       type="button"
-                      onClick={() => setImageUrl('')}
-                      className="absolute top-2 right-2 p-1.5 rounded-xl bg-rose-600/90 text-white hover:bg-rose-500 transition-colors shadow-lg"
-                      title="Clear photo"
+                      onClick={handleAddUrlPhoto}
+                      className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shrink-0"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      {language === 'NE' ? 'लिंक जोड्नुहोस्' : 'Attach Link'}
                     </button>
+                  </div>
+                )}
+
+                {/* Uploaded Photos Preview Reel */}
+                {uploadedFiles.length > 0 && (
+                  <div className="mt-4 p-4 rounded-2xl bg-slate-950 border border-slate-800">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-200">
+                          {language === 'NE' ? 'अपलोड गरिएका तस्बिरहरू' : 'Selected Photos'} ({uploadedFiles.length})
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setUploadedFiles([])}
+                        className="text-[11px] text-rose-400 hover:text-rose-300 font-medium"
+                      >
+                        {language === 'NE' ? 'सबै हटाउनुहोस्' : 'Clear all'}
+                      </button>
+                    </div>
+
+                    {/* Thumbnail queue */}
+                    <div className="flex items-center gap-3 overflow-x-auto pb-2 no-scrollbar">
+                      {uploadedFiles.map((item, idx) => (
+                        <div
+                          key={item.id}
+                          onClick={() => {
+                            setActiveFileIndex(idx);
+                            setTitleEn(item.name.replace(/[-_]/g, ' '));
+                          }}
+                          className={`relative shrink-0 w-20 h-20 rounded-2xl overflow-hidden cursor-pointer border-2 transition-all group ${
+                            activeFileIndex === idx
+                              ? 'border-blue-500 scale-105 shadow-md shadow-blue-500/20'
+                              : 'border-slate-800 opacity-70 hover:opacity-100'
+                          }`}
+                        >
+                          <img
+                            src={item.dataUrl}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveUploadedItem(idx);
+                            }}
+                            className="absolute top-1 right-1 p-1 rounded-lg bg-slate-950/80 text-rose-400 hover:bg-rose-600 hover:text-white transition-colors"
+                            title="Remove photo"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Active Uncropped Preview */}
+                    {currentPreview && (
+                      <div className="mt-3 relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 p-2 flex items-center justify-center min-h-[200px] max-h-[280px]">
+                        <img
+                          src={currentPreview.dataUrl}
+                          alt={currentPreview.name}
+                          className="max-h-[260px] max-w-full object-contain rounded-xl drop-shadow-xl"
+                        />
+                        <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-lg bg-slate-950/80 backdrop-blur text-[11px] font-mono text-slate-300 border border-slate-800">
+                          {currentPreview.name}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -353,130 +546,136 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
                       value={customLikesVal}
                       onChange={(e) => setCustomLikesVal(parseInt(e.target.value, 10) || 0)}
                       placeholder="Enter exact like count"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-pink-500"
+                      className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs font-mono focus:outline-none focus:border-pink-500"
                     />
                   </div>
                 )}
               </div>
 
-              {/* Bilingual Title Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Title (English) *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Keynote Speech at Innovation Summit"
-                    value={titleEn}
-                    onChange={(e) => setTitleEn(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    शीर्षक (नेपाली)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="उदा. नवीनता शिखर सम्मेलनमा मुख्य मन्तव्य"
-                    value={titleNe}
-                    onChange={(e) => setTitleNe(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Bilingual Description Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Description (English)
-                  </label>
-                  <textarea
-                    rows={2}
-                    placeholder="Highlights and context about this event..."
-                    value={descEn}
-                    onChange={(e) => setDescEn(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500 resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    विवरण (नेपाली)
-                  </label>
-                  <textarea
-                    rows={2}
-                    placeholder="यस कार्यक्रम वा क्षणको संक्षिप्त विवरण..."
-                    value={descNe}
-                    onChange={(e) => setDescNe(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500 resize-none"
-                  />
-                </div>
-              </div>
-
-              {/* Category and Date */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Category *
-                  </label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-blue-500"
-                  >
-                    {predefinedCategories.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-
-                  {category === 'Other' && (
+              {/* Title & Description Fields */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      {language === 'NE' ? 'शीर्षक (अंग्रेजी)' : 'Moment Title (English)'}
+                    </label>
                     <input
                       type="text"
-                      placeholder="Enter custom category name"
-                      value={customCategory}
-                      onChange={(e) => setCustomCategory(e.target.value)}
-                      className="mt-2 w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                      placeholder="e.g. Community Tech Summit 2026"
+                      value={titleEn}
+                      onChange={(e) => setTitleEn(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
                     />
-                  )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      {language === 'NE' ? 'शीर्षक (नेपाली)' : 'Moment Title (Nepali)'}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="उदा: सामुदायिक प्रविधि सम्मेलन"
+                      value={titleNe}
+                      onChange={(e) => setTitleNe(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Event Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={eventDate}
-                    onChange={(e) => setEventDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-blue-500"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      {language === 'NE' ? 'विवरण (अंग्रेजी)' : 'Description (English)'}
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Key highlights and context of this moment..."
+                      value={descEn}
+                      onChange={(e) => setDescEn(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500 resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      {language === 'NE' ? 'विवरण (नेपाली)' : 'Description (Nepali)'}
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="यस क्षणका मुख्य उपलब्धि र सन्दर्भ..."
+                      value={descNe}
+                      onChange={(e) => setDescNe(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500 resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Category & Date */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-blue-400" />
+                      <span>{language === 'NE' ? 'विधा / श्रेणी' : 'Category'}</span>
+                    </label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                    >
+                      {predefinedCategories.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+
+                    {category === 'Other' && (
+                      <input
+                        type="text"
+                        placeholder="Custom category name"
+                        value={customCategory}
+                        onChange={(e) => setCustomCategory(e.target.value)}
+                        className="mt-2 w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                      />
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>{language === 'NE' ? 'मिति' : 'Event Date'}</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={eventDate}
+                      onChange={(e) => setEventDate(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Form Action Buttons */}
-              <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3 shrink-0">
+              {/* Action Buttons */}
+              <div className="pt-4 border-t border-slate-800 flex items-center justify-between shrink-0">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                  className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
                 >
                   {language === 'NE' ? 'रद्द गर्नुहोस्' : 'Cancel'}
                 </button>
 
                 <button
                   type="submit"
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 active:scale-95 transition-all"
+                  disabled={uploadedFiles.length === 0 || isCompressing}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-lg shadow-blue-600/30 transition-all active:scale-95"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>{language === 'NE' ? 'तस्बिर प्रकाशित गर्नुहोस्' : 'Publish Moment'}</span>
+                  <span>
+                    {language === 'NE'
+                      ? `${uploadedFiles.length || 1} तस्बिर ग्यालरीमा राख्नुहोस्`
+                      : `Save ${uploadedFiles.length || 1} Photo(s) to Gallery`}
+                  </span>
                 </button>
               </div>
             </form>

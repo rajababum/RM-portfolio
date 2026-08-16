@@ -38,7 +38,13 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
   const [copiedType, setCopiedType] = useState<'email' | 'phone' | 'location' | null>(null);
 
   const handleCopy = (text: string, type: 'email' | 'phone' | 'location') => {
-    navigator.clipboard.writeText(text);
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(text).catch(() => {});
+      }
+    } catch {
+      // fallback
+    }
     setCopiedType(type);
     onShowToast(
       language === 'NE' ? 'क्लिपबोर्डमा प्रतिलिपि गरियो!' : 'Copied to clipboard!',

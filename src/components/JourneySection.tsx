@@ -82,8 +82,14 @@ export const JourneySection: React.FC<JourneySectionProps> = ({
   };
 
   const handleCopyShareLink = (moment: Moment) => {
-    const url = `${window.location.origin}${window.location.pathname}#moment-${moment.id}`;
-    navigator.clipboard.writeText(url);
+    try {
+      const url = `${window.location.origin}${window.location.pathname}#moment-${moment.id}`;
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(url).catch(() => {});
+      }
+    } catch {
+      // fallback
+    }
     onShowToast(
       language === 'NE' ? 'तस्बिर लिंक क्लिपबोर्डमा प्रतिलिपि गरियो!' : 'Direct moment link copied to clipboard!',
       'info'
