@@ -381,6 +381,9 @@ export default function App() {
         onResetToDefaults={handleResetToDefaults}
         onAutoBoostAllLikes={handleAutoBoostAllLikes}
         onShowToast={showToast}
+        moments={moments}
+        onDeleteMoment={handleDeleteMoment}
+        onOpenUploadModal={() => setIsUploadModalOpen(true)}
       />
     </div>
   );

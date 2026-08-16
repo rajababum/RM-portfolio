@@ -248,12 +248,38 @@ export const JourneySection: React.FC<JourneySectionProps> = ({
                       </span>
                     </div>
 
-                    {/* Top Right Date Badge */}
-                    <div className="absolute top-4 right-4 z-20">
+                    {/* Top Right Date & Quick Delete Badge */}
+                    <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5">
                       <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/80 backdrop-blur-md border border-slate-800 text-[11px] font-medium text-slate-300">
                         <Calendar className="w-3 h-3 text-slate-400" />
                         {moment.date}
                       </span>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (
+                              window.confirm(
+                                language === 'NE'
+                                  ? 'के तपाईँ यो तस्बिर मेटाउन निश्चित हुनुहुन्छ?'
+                                  : 'Are you sure you want to delete this photo?'
+                              )
+                            ) {
+                              onDeleteMoment(moment.id);
+                              onShowToast(
+                                language === 'NE' ? 'तस्बिर सफलतापूर्वक मेटाइयो।' : 'Photo deleted successfully.',
+                                'info'
+                              );
+                            }
+                          }}
+                          className="p-1.5 rounded-lg bg-rose-950/90 hover:bg-rose-600 border border-rose-700/80 text-rose-300 hover:text-white shadow-lg transition-all"
+                          title={language === 'NE' ? 'तस्बिर मेटाउनुहोस्' : 'Delete photo'}
+                          aria-label="Delete photo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
 
                     {/* Hover Toolbar overlay */}
@@ -280,13 +306,23 @@ export const JourneySection: React.FC<JourneySectionProps> = ({
 
                           <button
                             onClick={() => {
-                              if (window.confirm(language === 'NE' ? 'के तपाईँ यो तस्बिर मेटाउन निश्चित हुनुहुन्छ?' : 'Are you sure you want to delete this moment?')) {
+                              if (
+                                window.confirm(
+                                  language === 'NE'
+                                    ? 'के तपाईँ यो तस्बिर मेटाउन निश्चित हुनुहुन्छ?'
+                                    : 'Are you sure you want to delete this photo?'
+                                )
+                              ) {
                                 onDeleteMoment(moment.id);
+                                onShowToast(
+                                  language === 'NE' ? 'तस्बिर सफलतापूर्वक मेटाइयो।' : 'Photo deleted successfully.',
+                                  'info'
+                                );
                               }
                             }}
                             className="p-3 rounded-2xl bg-rose-600/90 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/40 transition-transform active:scale-90"
-                            title="Delete moment"
-                            aria-label="Delete moment"
+                            title="Delete photo"
+                            aria-label="Delete photo"
                           >
                             <Trash2 className="w-5 h-5" />
                           </button>
@@ -417,11 +453,11 @@ export const JourneySection: React.FC<JourneySectionProps> = ({
                     {language === 'NE' ? activeLightboxMoment.descNe : activeLightboxMoment.descEn}
                   </p>
 
-                  {/* Actions (Like + Share) */}
-                  <div className="flex items-center gap-3 pb-6 border-b border-slate-800 mb-6">
+                  {/* Actions (Like + Share + Admin Edit + Delete Photo) */}
+                  <div className="flex flex-wrap items-center gap-2.5 pb-6 border-b border-slate-800 mb-6">
                     <button
                       onClick={() => onLikeMoment(activeLightboxMoment.id)}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-bold transition-all ${
+                      className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-bold transition-all ${
                         userLikedMoments.includes(activeLightboxMoment.id)
                           ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/30'
                           : 'bg-slate-950 text-slate-300 hover:text-pink-400 border border-slate-800'
@@ -444,10 +480,51 @@ export const JourneySection: React.FC<JourneySectionProps> = ({
                     <button
                       onClick={() => handleCopyShareLink(activeLightboxMoment)}
                       className="p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800"
-                      title="Copy Share Link"
+                      title={language === 'NE' ? 'लिङ्क प्रतिलिपि गर्नुहोस्' : 'Copy Share Link'}
                     >
-                      <Share2 className="w-5 h-5" />
+                      <Share2 className="w-4 h-4" />
                     </button>
+
+                    {isAdmin && (
+                      <button
+                        onClick={() => {
+                          const target = moments.find((m) => m.id === activeLightboxMoment.id) || activeLightboxMoment;
+                          setActiveLightboxMoment(null);
+                          onOpenEditModal(target);
+                        }}
+                        className="p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-blue-400 border border-slate-800 hover:border-blue-500/40"
+                        title={language === 'NE' ? 'तस्बिर सम्पादन गर्नुहोस्' : 'Edit photo details'}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    )}
+
+                    {isAdmin && (
+                      <button
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              language === 'NE'
+                                ? 'के तपाईँ यो तस्बिर ग्यालरीबाट मेटाउन निश्चित हुनुहुन्छ?'
+                                : 'Are you sure you want to delete this photo from the gallery?'
+                            )
+                          ) {
+                            const photoId = activeLightboxMoment.id;
+                            setActiveLightboxMoment(null);
+                            onDeleteMoment(photoId);
+                            onShowToast(
+                              language === 'NE' ? 'तस्बिर सफलतापूर्वक मेटाइयो।' : 'Photo deleted successfully.',
+                              'info'
+                            );
+                          }
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-rose-950/70 hover:bg-rose-600 border border-rose-800/80 hover:border-rose-600 text-rose-300 hover:text-white text-xs font-semibold shadow-lg shadow-rose-950/40 transition-all"
+                        title={language === 'NE' ? 'यो तस्बिर मेटाउनुहोस्' : 'Delete this photo'}
+                      >
+                        <Trash2 className="w-4 h-4 text-rose-400" />
+                        <span>{language === 'NE' ? 'मेटाउनुहोस्' : 'Delete'}</span>
+                      </button>
+                    )}
                   </div>
 
                   {/* Comments Feed */}

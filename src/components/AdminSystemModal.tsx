@@ -16,8 +16,13 @@ import {
   Sparkles,
   Upload,
   RefreshCw,
+  Image,
+  Eye,
+  Edit2,
+  Calendar,
+  Layers,
 } from 'lucide-react';
-import { SystemSettings, Language, StatItem, SkillItem, MilestoneItem } from '../types';
+import { SystemSettings, Language, StatItem, SkillItem, MilestoneItem, Moment } from '../types';
 import { compressImageFile } from '../utils/imageCompressor';
 
 interface AdminSystemModalProps {
@@ -29,6 +34,9 @@ interface AdminSystemModalProps {
   onResetToDefaults: () => void;
   onAutoBoostAllLikes: () => void;
   onShowToast: (text: string, type: 'success' | 'error' | 'info') => void;
+  moments?: Moment[];
+  onDeleteMoment?: (id: string) => void;
+  onOpenUploadModal?: () => void;
 }
 
 export const AdminSystemModal: React.FC<AdminSystemModalProps> = ({
@@ -40,8 +48,12 @@ export const AdminSystemModal: React.FC<AdminSystemModalProps> = ({
   onResetToDefaults,
   onAutoBoostAllLikes,
   onShowToast,
+  moments = [],
+  onDeleteMoment,
+  onOpenUploadModal,
 }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'about' | 'experience' | 'contact' | 'autoLikes'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'about' | 'experience' | 'contact' | 'autoLikes' | 'photos'>('profile');
+  const [photoSearch, setPhotoSearch] = useState('');
   const [draft, setDraft] = useState<SystemSettings>(systemSettings);
   const [isCompressingHero, setIsCompressingHero] = useState(false);
   const heroFileInputRef = useRef<HTMLInputElement>(null);
@@ -251,7 +263,25 @@ export const AdminSystemModal: React.FC<AdminSystemModalProps> = ({
                 }`}
               >
                 <Zap className="w-3.5 h-3.5 text-amber-300" />
-                <span>{language === 'NE' ? '५. स्वतः-लाइक्स कन्फिग' : '5. Auto-Likes Config'}</span>
+                <span>{language === 'NE' ? '५. स्वतः-लाइक्स' : '5. Auto-Likes'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('photos')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                  activeTab === 'photos'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                    : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+                }`}
+              >
+                <Image className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{language === 'NE' ? '६. तस्बिर व्यवस्थापन' : '6. Photos CMS & Delete'}</span>
+                {moments.length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-slate-900 text-[10px] font-mono text-emerald-300">
+                    {moments.length}
+                  </span>
+                )}
               </button>
             </div>
 
@@ -833,6 +863,146 @@ export const AdminSystemModal: React.FC<AdminSystemModalProps> = ({
                         className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm font-mono"
                       />
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 6: PHOTOS CMS & DELETE MANAGER */}
+              {activeTab === 'photos' && (
+                <div className="space-y-6">
+                  <div className="p-4 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-sm font-bold text-emerald-300 mb-1">
+                        {language === 'NE' ? 'तस्बिर ग्यालरी व्यवस्थापन तथा मेटाउने प्रणाली' : 'Gallery Photos Management & Delete Control'}
+                      </h4>
+                      <p className="text-xs text-slate-400">
+                        {language === 'NE'
+                          ? `हाल कुल ${moments.length} तस्बिरहरू उपलब्ध छन्। यहाँबाट कुनै पनि तस्बिर तुरुन्तै मेटाउन सक्नुहुन्छ।`
+                          : `Currently ${moments.length} photos in gallery. You can inspect and delete any photo immediately with 1-click.`}
+                      </p>
+                    </div>
+                    {onOpenUploadModal && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          onOpenUploadModal();
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 transition-all active:scale-95"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>{language === 'NE' ? '+ नयाँ तस्बिर थप्नुहोस्' : '+ Upload New Photo'}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Search / Filter bar */}
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="text"
+                      placeholder={language === 'NE' ? 'तस्बिर खोज्नुहोस्...' : 'Filter photos by title or category...'}
+                      value={photoSearch}
+                      onChange={(e) => setPhotoSearch(e.target.value)}
+                      className="flex-1 px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                    />
+                    {photoSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setPhotoSearch('')}
+                        className="px-3 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium"
+                      >
+                        {language === 'NE' ? 'खाली गर्नुहोस्' : 'Clear'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Photo List Cards */}
+                  <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                    {moments.filter((m) =>
+                      m.titleEn.toLowerCase().includes(photoSearch.toLowerCase()) ||
+                      m.titleNe.includes(photoSearch) ||
+                      m.category.toLowerCase().includes(photoSearch.toLowerCase())
+                    ).length === 0 ? (
+                      <div className="py-12 text-center rounded-2xl bg-slate-950/60 border border-slate-800 text-xs text-slate-400">
+                        {language === 'NE' ? 'कुनै तस्बिर भेटिएन।' : 'No photos matching your search.'}
+                      </div>
+                    ) : (
+                      moments
+                        .filter((m) =>
+                          m.titleEn.toLowerCase().includes(photoSearch.toLowerCase()) ||
+                          m.titleNe.includes(photoSearch) ||
+                          m.category.toLowerCase().includes(photoSearch.toLowerCase())
+                        )
+                        .map((moment) => (
+                          <div
+                            key={moment.id}
+                            className="p-3 sm:p-4 rounded-2xl bg-slate-950 border border-slate-800/80 hover:border-slate-700 flex items-center justify-between gap-4 transition-all"
+                          >
+                            <div className="flex items-center gap-3.5 min-w-0">
+                              <img
+                                src={moment.imgUrl}
+                                alt={moment.titleEn}
+                                referrerPolicy="no-referrer"
+                                className="w-14 h-14 rounded-xl object-cover bg-slate-900 border border-slate-800 shrink-0"
+                              />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-[10px] font-bold text-blue-400">
+                                    {moment.category}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
+                                    <Calendar className="w-3 h-3 text-slate-500" />
+                                    {moment.date}
+                                  </span>
+                                </div>
+                                <h5 className="text-xs sm:text-sm font-bold text-slate-200 truncate">
+                                  {language === 'NE' ? moment.titleNe : moment.titleEn}
+                                </h5>
+                                <p className="text-[11px] text-slate-400 truncate max-w-sm sm:max-w-md">
+                                  {language === 'NE' ? moment.descNe : moment.descEn}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Delete & Action Controls */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-xs font-mono font-bold text-pink-400 px-2.5 py-1 rounded-lg bg-pink-950/40 border border-pink-500/20 hidden sm:inline-block">
+                                ❤️ {moment.likes}
+                              </span>
+
+                              {onDeleteMoment && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(
+                                        language === 'NE'
+                                          ? `के तपाईँ "${moment.titleNe || moment.titleEn}" तस्बिर निश्चित रूपमा मेटाउन चाहनुहुन्छ?`
+                                          : `Are you sure you want to permanently delete "${moment.titleEn}"?`
+                                      )
+                                    ) {
+                                      onDeleteMoment(moment.id);
+                                      onShowToast(
+                                        language === 'NE'
+                                          ? 'तस्बिर सफलतापूर्वक मेटाइयो।'
+                                          : 'Photo deleted from gallery.',
+                                        'info'
+                                      );
+                                    }
+                                  }}
+                                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-600 border border-rose-800/80 hover:border-rose-600 text-rose-300 hover:text-white text-xs font-semibold shadow-md transition-all active:scale-95"
+                                  title={language === 'NE' ? 'तस्बिर मेटाउनुहोस्' : 'Delete photo'}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span className="hidden sm:inline">
+                                    {language === 'NE' ? 'मेटाउनुहोस्' : 'Delete'}
+                                  </span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                    )}
                   </div>
                 </div>
               )}
