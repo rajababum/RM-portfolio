@@ -1,0 +1,6 @@
+{
+  "name": "Rajababu Mehta Portfolio & Photo CMS",
+  "description": "Comprehensive dark-themed personal portfolio and dynamic photo CMS with bilingual English/Nepali support, auto-likes engine, and secret admin authentication.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
